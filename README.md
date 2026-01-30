@@ -37,10 +37,93 @@ An AI-powered nutrition tracking app that analyzes food images and provides comp
 
 ## 🏗️ Architecture
 
-- **Single-file monolith** (~2,200 lines): `app.py`
-- **6-tab interface**: Analyze, Daily Summary, Set Goals, View History, Progress, Quick Add
-- **Data Flow**: Image → Vision API → USDA lookup → Smart serving detection → Multiplier calculation
-- **100g Standard**: All nutrition normalized to 100g, then scaled to user portions
+**Modular Design:**
+- **app.py** (809 lines): Core utilities and API integrations
+- **tabs/** (6 modules, 1,891 lines): Separate UI components
+  - `tab_analyze.py` - Photo/barcode scanning
+  - `tab_summary.py` - Daily nutrition overview
+  - `tab_goals.py` - Goal management with calculator
+  - `tab_history.py` - Meal history browser
+  - `tab_progress.py` - Weight and calorie trends
+  - `tab_quick_add.py` - Manual food entry
+
+**Data Flow**: Image → Vision API → USDA lookup → Smart serving detection → Multiplier calculation → 100g Standard (all nutrition normalized to 100g, then scaled to user portions)
+
+## ☁️ Deployment to Streamlit Community Cloud (FREE)
+
+### Prerequisites
+- GitHub account
+- Google Cloud Vision API key
+- USDA API key
+
+### Steps to Deploy
+
+1. **Go to Streamlit Cloud**
+   - Visit https://share.streamlit.io
+   - Sign in with GitHub
+
+2. **Deploy Your App**
+   - Click "New app"
+   - Select your repository: `KalvinVar/Calories-AI-App`
+   - Main file: `app.py`
+   - Click "Deploy"
+
+3. **Configure Secrets** (in Streamlit Cloud dashboard)
+   
+   Go to App Settings → Secrets and add:
+   
+   ```toml
+   # USDA API Key
+   USDA_API_KEY = "your_usda_api_key_here"
+   
+   # Google Cloud Vision credentials (copy from vision-key.json)
+   [google_credentials]
+   type = "service_account"
+   project_id = "your-project-id"
+   private_key_id = "your-private-key-id"
+   private_key = "-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n"
+   client_email = "your-service-account@project.iam.gserviceaccount.com"
+   client_id = "your-client-id"
+   auth_uri = "https://accounts.google.com/o/oauth2/auth"
+   token_uri = "https://oauth2.googleapis.com/token"
+   auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+   client_x509_cert_url = "your-cert-url"
+   ```
+
+4. **Update Code for Cloud Deployment** (Required changes)
+   
+   Replace `.env` loading with `st.secrets`:
+   ```python
+   # OLD: load_dotenv()
+   # NEW: Use st.secrets directly
+   
+   # For USDA API
+   USDA_API_KEY = st.secrets["USDA_API_KEY"]
+   
+   # For Google Vision
+   credentials = service_account.Credentials.from_service_account_info(
+       st.secrets["google_credentials"]
+   )
+   ```
+
+5. **Access Your App**
+   - URL: `https://your-app-name.streamlit.app`
+   - Works on any device (phone, tablet, desktop)
+   - Share the link with anyone!
+
+### Benefits
+✅ **100% FREE** - No hosting costs  
+✅ **Mobile-friendly** - Works in any browser  
+✅ **Auto-updates** - Pushes to GitHub update the site  
+✅ **Global access** - Available anywhere with internet  
+✅ **No maintenance** - Streamlit handles infrastructure  
+
+### Future Enhancement: PWA (Progressive Web App)
+To make the app installable on phones ("Add to Home Screen"):
+- Add `manifest.json` with app metadata
+- Users can install as if it's a native app
+- Opens without browser UI
+- Still free, just config files!
 
 ## 🚀 Setup Instructions
 
