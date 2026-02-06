@@ -16,29 +16,45 @@ from pyzbar.pyzbar import decode as decode_barcode
 # Load environment variables (for local development)
 load_dotenv()
 
+# Page config - must be first Streamlit command
+st.set_page_config(
+    page_title="Food Calorie Analyzer",
+    page_icon="🍽️",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
 # API Keys - Support both local (.env) and cloud (st.secrets)
+vision_client = None
+USDA_API_KEY = None
+
 # Try Streamlit Cloud secrets first
 try:
     # This will fail if secrets aren't configured or if running locally
-    test_secrets = st.secrets["USDA_API_KEY"]
-    # If we get here, we're on Streamlit Cloud with secrets configured
     USDA_API_KEY = st.secrets["USDA_API_KEY"]
-    credentials = service_account.Credentials.from_service_account_info(
-        dict(st.secrets["google_credentials"])
-    )
+    # If we get here, we're on Streamlit Cloud with secrets configured
+    google_creds = dict(st.secrets["google_credentials"])
+    credentials = service_account.Credentials.from_service_account_info(google_creds)
     vision_client = vision.ImageAnnotatorClient(credentials=credentials)
-    st.sidebar.success("✅ Using Cloud Secrets")
+    print("[DEBUG] Successfully loaded Streamlit Cloud secrets")
+    st.toast("✅ Using Cloud Secrets", icon="☁️")
 except Exception as e:
+    print(f"[DEBUG] Secrets failed, trying local: {e}")
     # Running locally or secrets not configured - use .env
     USDA_API_KEY = os.getenv("USDA_API_KEY")
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if credentials_path and os.path.exists(credentials_path):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
         vision_client = vision.ImageAnnotatorClient()
-        st.sidebar.info("📁 Using Local Credentials")
+        print("[DEBUG] Using local credentials file")
+        st.toast("📁 Using Local Credentials", icon="💻")
     else:
-        st.error(f"❌ No credentials found! Error: {e}")
+        st.error(f"❌ No credentials found! Please configure secrets in Streamlit Cloud.\n\nError: {str(e)}")
         st.stop()
+
+if vision_client is None or USDA_API_KEY is None:
+    st.error("❌ Failed to initialize API clients. Check your secrets configuration.")
+    st.stop()
 
 # Data directory
 DATA_DIR = Path("data")
@@ -49,14 +65,6 @@ WEIGHT_FILE = DATA_DIR / "weight.json"
 WATER_FILE = DATA_DIR / "water.json"
 IMAGES_DIR = DATA_DIR / "meal_images"
 IMAGES_DIR.mkdir(exist_ok=True)
-
-# Page config
-st.set_page_config(
-    page_title="Food Calorie Analyzer",
-    page_icon="🍽️",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
 
 # PWA Setup with embedded manifest
 st.markdown("""
