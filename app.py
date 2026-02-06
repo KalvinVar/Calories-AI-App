@@ -17,29 +17,28 @@ from pyzbar.pyzbar import decode as decode_barcode
 load_dotenv()
 
 # API Keys - Support both local (.env) and cloud (st.secrets)
-# Check if running on Streamlit Cloud by looking for secrets
-if hasattr(st, 'secrets') and len(st.secrets) > 0:
-    # Running on Streamlit Cloud - use secrets
-    try:
-        USDA_API_KEY = st.secrets["USDA_API_KEY"]
-        # Google Cloud credentials from secrets
-        credentials = service_account.Credentials.from_service_account_info(
-            st.secrets["google_credentials"]
-        )
-        vision_client = vision.ImageAnnotatorClient(credentials=credentials)
-        print("[Secrets] Using Streamlit Cloud secrets")
-    except Exception as e:
-        st.error(f"Error loading secrets: {e}")
-        st.stop()
-else:
-    # Running locally - use .env file
+# Try Streamlit Cloud secrets first
+try:
+    # This will fail if secrets aren't configured or if running locally
+    test_secrets = st.secrets["USDA_API_KEY"]
+    # If we get here, we're on Streamlit Cloud with secrets configured
+    USDA_API_KEY = st.secrets["USDA_API_KEY"]
+    credentials = service_account.Credentials.from_service_account_info(
+        dict(st.secrets["google_credentials"])
+    )
+    vision_client = vision.ImageAnnotatorClient(credentials=credentials)
+    st.sidebar.success("✅ Using Cloud Secrets")
+except Exception as e:
+    # Running locally or secrets not configured - use .env
     USDA_API_KEY = os.getenv("USDA_API_KEY")
-    # Google Cloud credentials from file
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if credentials_path and os.path.exists(credentials_path):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-    vision_client = vision.ImageAnnotatorClient()
-    print("[Local] Using local .env credentials")
+        vision_client = vision.ImageAnnotatorClient()
+        st.sidebar.info("📁 Using Local Credentials")
+    else:
+        st.error(f"❌ No credentials found! Error: {e}")
+        st.stop()
 
 # Data directory
 DATA_DIR = Path("data")
