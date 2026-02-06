@@ -84,6 +84,21 @@ st.markdown("""
     <style>
     /* Mobile-first responsive design */
     @media (max-width: 768px) {
+    /* Desktop: Tabs spread evenly across */
+    .stTabs [data-baseweb="tab-list"] {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        justify-content: space-evenly;
+        gap: 0.5rem;
+    }
+    
+    [data-baseweb="tab"] {
+        flex: 1 1 auto !important;
+        text-align: center;
+    }
+    
+    /* Mobile-first responsive design */
+    @media (max-width: 768px) {
         /* Allow tabs to wrap to multiple rows on mobile */
         .stTabs [data-baseweb="tab-list"] {
             display: flex !important;
