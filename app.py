@@ -797,8 +797,8 @@ def analyze_food_image(image_file):
     """Send image to Google Cloud Vision API and get nutrition analysis"""
     
     try:
-        # Initialize Google Cloud Vision client
-        client = vision.ImageAnnotatorClient()
+        # Use the global vision_client that has proper credentials
+        global vision_client
         
         # Reset file pointer and read image
         image_file.seek(0)
@@ -810,15 +810,15 @@ def analyze_food_image(image_file):
         image = vision.Image(content=content)
         
         # Detect labels (objects/food items)
-        response = client.label_detection(image=image)
+        response = vision_client.label_detection(image=image)
         labels = response.label_annotations
         
         # NEW: Detect objects with localization for better multi-item detection
-        objects_response = client.object_localization(image=image)
+        objects_response = vision_client.object_localization(image=image)
         objects = objects_response.localized_object_annotations
         
         # Detect web entities for more context
-        web_response = client.web_detection(image=image)
+        web_response = vision_client.web_detection(image=image)
         web_entities = web_response.web_detection.web_entities
         
         if response.error.message:
