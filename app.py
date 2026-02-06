@@ -68,54 +68,22 @@ st.markdown("""
     <style>
     /* Mobile-first responsive design */
     @media (max-width: 768px) {
-        /* Container for tabs with gradient indicators */
+        /* Allow tabs to wrap to multiple rows on mobile */
         .stTabs [data-baseweb="tab-list"] {
-            position: relative;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            display: flex;
-            flex-wrap: nowrap !important;
+            display: flex !important;
+            flex-wrap: wrap !important;
             gap: 0.5rem;
-            padding-bottom: 0.5rem;
-            scrollbar-width: none; /* Hide scrollbar on Firefox */
-        }
-        
-        /* Hide scrollbar on Chrome/Safari */
-        .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {
-            display: none;
-        }
-        
-        /* Add fade gradient on right edge to indicate more tabs */
-        .stTabs [data-baseweb="tab-list"]::after {
-            content: "→";
-            position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
-            width: 60px;
-            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.95));
-            pointer-events: none;
-            display: flex;
-            align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            color: #FF6B6B;
-            font-weight: bold;
-            animation: slideHint 1.5s ease-in-out infinite;
         }
         
-        /* Hint animation */
-        @keyframes slideHint {
-            0%, 100% { transform: translateX(0); }
-            50% { transform: translateX(5px); }
-        }
-        
-        /* Larger touch targets for tabs */
+        /* Compact tab styling for mobile */
         [data-baseweb="tab"] {
-            min-width: 120px !important;
-            padding: 0.75rem 1rem !important;
-            font-size: 1rem !important;
+            flex: 0 1 auto !important;
+            min-width: 80px !important;
+            max-width: 110px !important;
+            padding: 0.6rem 0.5rem !important;
+            font-size: 0.85rem !important;
+            text-align: center;
             white-space: nowrap;
         }
         
