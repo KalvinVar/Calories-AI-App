@@ -1,5 +1,6 @@
 import streamlit as st
 from google.cloud import vision
+from google.oauth2 import service_account
 from PIL import Image
 import io
 import os
@@ -12,8 +13,24 @@ from pathlib import Path
 import pandas as pd
 from pyzbar.pyzbar import decode as decode_barcode
 
-# Load environment variables
+# Load environment variables (for local development)
 load_dotenv()
+
+# API Keys - Support both local (.env) and cloud (st.secrets)
+try:
+    # Try Streamlit secrets first (for cloud deployment)
+    USDA_API_KEY = st.secrets["USDA_API_KEY"]
+    # Google Cloud credentials from secrets
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["google_credentials"]
+    )
+    vision_client = vision.ImageAnnotatorClient(credentials=credentials)
+except (FileNotFoundError, KeyError):
+    # Fallback to local .env file
+    USDA_API_KEY = os.getenv("USDA_API_KEY")
+    # Google Cloud credentials from file
+    credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    vision_client = vision.ImageAnnotatorClient()
 
 # Data directory
 DATA_DIR = Path("data")
@@ -407,7 +424,6 @@ def get_product_from_barcode(barcode):
         return None
 
 # USDA API configuration
-USDA_API_KEY = os.getenv("USDA_API_KEY", "DEMO_KEY")  # Free API, no key required with rate limits
 USDA_SEARCH_URL = "https://api.nal.usda.gov/fdc/v1/foods/search"
 
 # Hugging Face Food Classifier
