@@ -46,7 +46,8 @@ IMAGES_DIR.mkdir(exist_ok=True)
 st.set_page_config(
     page_title="Food Calorie Analyzer",
     page_icon="🍽️",
-    layout="centered"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
 # PWA Setup with embedded manifest
@@ -57,7 +58,7 @@ st.markdown("""
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="CalorieApp">
     <meta name="description" content="Analyze food calories and nutrition from photos using AI">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkZvb2QgQ2Fsb3JpZSBBbmFseXplciIsCiAgInNob3J0X25hbWUiOiAiQ2Fsb3JpZUFwcCIsCiAgImRlc2NyaXB0aW9uIjogIkFuYWx5emUgZm9vZCBjYWxvcmllcyBhbmQgbnV0cml0aW9uIGZyb20gcGhvdG9zIHVzaW5nIEFJIiwKICAic3RhcnRfdXJsIjogIi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjRkY2QjZCIiwKICAib3JpZW50YXRpb24iOiAicG9ydHJhaXQiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsPHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJz48dGV4dCB5PSc3NScgZm9udC1zaXplPSc3NSc+8J+NvO+4jzwvdGV4dD48L3N2Zz4iLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiLAogICAgICAicHVycG9zZSI6ICJhbnkgbWFza2FibGUiCiAgICB9LAogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEwMCAxMDAnPjx0ZXh0IHk9Jzc1JyBmb250LXNpemU9Jzc1Jz7wn42877iPPC90ZXh0Pjwvc3ZnPiIsCiAgICAgICJzaXplcyI6ICI1MTJ4NTEyIiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIsCiAgICAgICJwdXJwb3NlIjogImFueSBtYXNrYWJsZSIKICAgIH0KICBdCn0=">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🍽️</text></svg>">
     """, unsafe_allow_html=True)
@@ -65,6 +66,68 @@ st.markdown("""
 # Custom CSS for better UI
 st.markdown("""
     <style>
+    /* Mobile-first responsive design */
+    @media (max-width: 768px) {
+        /* Make tabs scrollable on mobile */
+        [data-baseweb="tab-list"] {
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-wrap: nowrap !important;
+            gap: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+        
+        /* Larger touch targets for tabs */
+        [data-baseweb="tab"] {
+            min-width: 120px !important;
+            padding: 0.75rem 1rem !important;
+            font-size: 1rem !important;
+            white-space: nowrap;
+        }
+        
+        /* Increase button sizes for mobile */
+        .stButton button {
+            min-height: 48px !important;
+            font-size: 1.1rem !important;
+            padding: 0.75rem 1.5rem !important;
+        }
+        
+        /* Larger input fields */
+        input, select, textarea {
+            min-height: 48px !important;
+            font-size: 1rem !important;
+        }
+        
+        /* Better spacing for mobile */
+        .element-container {
+            padding: 0.5rem 0 !important;
+        }
+        
+        /* Larger title on mobile */
+        h1 {
+            font-size: 2rem !important;
+        }
+        
+        /* Larger metrics */
+        [data-testid="stMetricValue"] {
+            font-size: 2rem !important;
+        }
+        
+        /* Better file uploader on mobile */
+        [data-testid="stFileUploader"] {
+            padding: 1.5rem 1rem !important;
+        }
+        
+        /* Wider content on mobile */
+        .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            max-width: 100% !important;
+        }
+    }
+    
     /* Main title styling */
     h1 {
         color: #FF6B6B;
