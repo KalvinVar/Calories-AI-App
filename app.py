@@ -17,20 +17,29 @@ from pyzbar.pyzbar import decode as decode_barcode
 load_dotenv()
 
 # API Keys - Support both local (.env) and cloud (st.secrets)
-try:
-    # Try Streamlit secrets first (for cloud deployment)
-    USDA_API_KEY = st.secrets["USDA_API_KEY"]
-    # Google Cloud credentials from secrets
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["google_credentials"]
-    )
-    vision_client = vision.ImageAnnotatorClient(credentials=credentials)
-except (FileNotFoundError, KeyError):
-    # Fallback to local .env file
+# Check if running on Streamlit Cloud by looking for secrets
+if hasattr(st, 'secrets') and len(st.secrets) > 0:
+    # Running on Streamlit Cloud - use secrets
+    try:
+        USDA_API_KEY = st.secrets["USDA_API_KEY"]
+        # Google Cloud credentials from secrets
+        credentials = service_account.Credentials.from_service_account_info(
+            st.secrets["google_credentials"]
+        )
+        vision_client = vision.ImageAnnotatorClient(credentials=credentials)
+        print("[Secrets] Using Streamlit Cloud secrets")
+    except Exception as e:
+        st.error(f"Error loading secrets: {e}")
+        st.stop()
+else:
+    # Running locally - use .env file
     USDA_API_KEY = os.getenv("USDA_API_KEY")
     # Google Cloud credentials from file
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    if credentials_path and os.path.exists(credentials_path):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
     vision_client = vision.ImageAnnotatorClient()
+    print("[Local] Using local .env credentials")
 
 # Data directory
 DATA_DIR = Path("data")
