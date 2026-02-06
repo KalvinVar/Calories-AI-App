@@ -82,19 +82,18 @@ st.markdown("""
 # Custom CSS for better UI
 st.markdown("""
     <style>
-    /* Mobile-first responsive design */
-    @media (max-width: 768px) {
     /* Desktop: Tabs spread evenly across */
     .stTabs [data-baseweb="tab-list"] {
         display: flex !important;
         flex-wrap: nowrap !important;
-        justify-content: space-evenly;
+        justify-content: space-evenly !important;
         gap: 0.5rem;
+        width: 100%;
     }
     
     [data-baseweb="tab"] {
         flex: 1 1 auto !important;
-        text-align: center;
+        text-align: center !important;
     }
     
     /* Mobile-first responsive design */
@@ -104,7 +103,7 @@ st.markdown("""
             display: flex !important;
             flex-wrap: wrap !important;
             gap: 0.5rem;
-            justify-content: center;
+            justify-content: center !important;
         }
         
         /* Compact tab styling for mobile */
