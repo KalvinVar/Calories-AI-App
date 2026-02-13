@@ -408,16 +408,6 @@ def render_exercise_logger(app, user_weight):
         col1, col2 = st.columns(2)
 
         with col1:
-            duration = st.number_input(
-                "Duration (minutes)",
-                min_value=1,
-                max_value=300,
-                value=30,
-                step=5,
-                key="ex_duration"
-            )
-
-        with col2:
             st.caption("**Quick durations:**")
             d_cols = st.columns(4)
             durations = [15, 30, 45, 60]
@@ -426,6 +416,16 @@ def render_exercise_logger(app, user_weight):
                     if st.button(f"{d} min", use_container_width=True, key=f"dur_{d}"):
                         st.session_state['ex_duration'] = d
                         st.rerun()
+
+        with col2:
+            duration = st.number_input(
+                "Duration (minutes)",
+                min_value=1,
+                max_value=300,
+                value=30,
+                step=5,
+                key="ex_duration"
+            )
 
         # Calculate calories burned
         calories_burned = calculate_calories_burned(exercise_data['met'], user_weight, duration)
