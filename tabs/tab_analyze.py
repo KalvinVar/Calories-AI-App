@@ -1012,25 +1012,25 @@ def render_search_mode(app):
                             st.markdown(f"**Source:** {food.get('dataType', 'USDA')}")
                         
                         with col2:
-                            if st.button("Select", key=f"select_{idx}", use_container_width=True):
+                            if st.button("✅ Select This", key=f"select_{idx}", type="primary", use_container_width=True):
                                 st.session_state['selected_food'] = food
                                 st.rerun()
                         
                         # Nutrition info (per 100g)
                         if food.get('nutrition'):
-                            st.markdown("#### Nutrition Facts (per 100g)")
+                            st.markdown("#### 📊 Nutrition Facts (per 100g)")
                             
                             nutrients = food['nutrition']
                             col1, col2, col3, col4 = st.columns(4)
                             
                             with col1:
-                                st.metric("Calories", f"{nutrients.get('calories', 0):.0f}")
+                                st.metric("🔥 Calories", f"{nutrients.get('calories', 0):.0f}")
                             with col2:
-                                st.metric("Protein", f"{nutrients.get('protein', 0):.1f}g")
+                                st.metric("💪 Protein", f"{nutrients.get('protein', 0):.1f}g")
                             with col3:
-                                st.metric("Carbs", f"{nutrients.get('carbs', 0):.1f}g")
+                                st.metric("🍞 Carbs", f"{nutrients.get('carbs', 0):.1f}g")
                             with col4:
-                                st.metric("Fat", f"{nutrients.get('fat', 0):.1f}g")
+                                st.metric("🥑 Fat", f"{nutrients.get('fat', 0):.1f}g")
             else:
                 st.info("💡 No results found. Try a different search term or check spelling.")
     elif search_query:
@@ -1041,59 +1041,101 @@ def render_search_mode(app):
         st.divider()
         selected = st.session_state['selected_food']
         
-        st.success(f"✅ Selected: **{selected['name']}**")
+        # Display selected food with image placeholder
+        col_img, col_info = st.columns([1, 2])
         
-        # Portion input
+        with col_img:
+            # Show a food emoji based on category
+            category = app.detect_food_category(selected['name'])
+            emoji_map = {
+                'beverage': '🥤', 'meat': '🥩', 'pizza': '🍕', 'burger': '🍔',
+                'fries': '🍟', 'fruit': '🍎', 'salad': '🥗', 'pasta': '🍝',
+                'rice': '🍚', 'soup': '🍲', 'bread': '🍞', 'cookies': '🍪',
+                'candy': '🍬', 'snacks': '🍿', 'vegetables': '🥦', 'other': '🍽️'
+            }
+            food_emoji = emoji_map.get(category, '🍽️')
+            
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 3rem;
+                border-radius: 15px;
+                text-align: center;
+                font-size: 5rem;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            ">
+                {food_emoji}
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_info:
+            st.markdown(f"### {selected['name']}")
+            st.caption(f"**Brand:** {selected.get('brand', 'Generic')} | **Source:** {selected.get('dataType', 'USDA')}")
+        
+        st.divider()
+        
+        # Portion input section
+        st.markdown("### 🍴 Adjust Your Portion Size")
+        
+        # Detect category for smart defaults
+        category = app.detect_food_category(selected['name'])
+        conversion = app.get_serving_conversion(category)
+        
+        # Show helpful category info
+        if category != 'other':
+            st.caption(f"✨ **{category.title()}** detected - Using smart portion sizes")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            # Detect category for smart defaults
-            category = app.detect_food_category(selected['name'])
-            unit, grams_per_unit, label = app.get_serving_conversion(category)
-            
-            if unit == "pieces":
-                default_amount = 1
-                max_amount = 10
-                step = 1
-            elif unit == "ml":
-                default_amount = 250
-                max_amount = 2000
-                step = 50
-            elif unit == "cups":
-                default_amount = 1.0
-                max_amount = 5.0
-                step = 0.5
+            # Get defaults based on category
+            if category in ['cookies', 'bread']:
+                default_amount, max_amount, step = 3, 20, 1
+            elif category in ['pizza', 'fruit', 'salad']:
+                default_amount, max_amount, step = 2, 8, 1
+            elif category in ['burger', 'candy']:
+                default_amount, max_amount, step = 1, 5, 1
+            elif category in ['meat']:
+                default_amount, max_amount, step = 100, 500, 25
+            elif category in ['beverage']:
+                default_amount, max_amount, step = 250, 2000, 50
+            elif category in ['rice', 'pasta', 'soup', 'vegetables']:
+                default_amount, max_amount, step = 1.0, 5.0, 0.5
+            elif category in ['fries', 'snacks']:
+                default_amount, max_amount, step = 1.0, 5.0, 0.5
             else:
-                default_amount = 100
-                max_amount = 500
-                step = 25
+                default_amount, max_amount, step = 2.0, 5.0, 0.5
             
-            portion_amount = st.number_input(
-                f"How many {label}?",
-                min_value=float(step),
-                max_value=float(max_amount),
-                value=float(default_amount),
-                step=float(step),
-                key="search_portion"
-            )
+            # Type-safe number input
+            if isinstance(step, int):
+                portion_amount = st.number_input(
+                    conversion['label'],
+                    min_value=int(step),
+                    max_value=int(max_amount),
+                    value=int(default_amount),
+                    step=int(step),
+                    key="search_portion"
+                )
+            else:
+                portion_amount = st.number_input(
+                    conversion['label'],
+                    min_value=float(step),
+                    max_value=float(max_amount),
+                    value=float(default_amount),
+                    step=float(step),
+                    key="search_portion"
+                )
         
         with col2:
             meal_type = st.selectbox(
                 "Meal Type",
-                ["Breakfast", "Lunch", "Dinner", "Snack"],
+                ["🌅 Breakfast", "🌞 Lunch", "🌆 Dinner", "🍿 Snack"],
                 index=0,
                 key="search_meal_type"
             )
         
-        # Calculate multiplier
-        if unit == "pieces":
-            multiplier = portion_amount * grams_per_unit / 100
-        elif unit == "ml":
-            multiplier = portion_amount / 100
-        elif unit == "cups":
-            multiplier = portion_amount * grams_per_unit / 100
-        else:
-            multiplier = portion_amount / 100
+        # Calculate multiplier using the app's function
+        multiplier = app.calculate_multiplier(category, portion_amount)
         
         # Calculate adjusted nutrition
         nutrition = selected['nutrition']
@@ -1104,52 +1146,83 @@ def render_search_mode(app):
             'fat': nutrition.get('fat', 0) * multiplier
         }
         
-        # Show adjusted nutrition
-        st.markdown(f"### Your Portion ({portion_amount} {label})")
-        col1, col2, col3, col4 = st.columns(4)
+        # Show adjusted nutrition in styled card
+        st.markdown(f"### 📊 Your Portion")
+        st.caption(f"{portion_amount} {conversion['unit']} = ~{int(multiplier * 100)}g")
         
-        with col1:
-            st.metric("Calories", f"{adjusted['calories']:.0f}", delta=None)
-        with col2:
-            st.metric("Protein", f"{adjusted['protein']:.1f}g")
-        with col3:
-            st.metric("Carbs", f"{adjusted['carbs']:.1f}g")
-        with col4:
-            st.metric("Fat", f"{adjusted['fat']:.1f}g")
+        # Big calorie display
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            margin: 1rem 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        ">
+            <div style="color: white; font-size: 1rem; opacity: 0.9; font-weight: 600;">CALORIES</div>
+            <div style="color: white; font-size: 4rem; font-weight: bold; margin: 0.5rem 0;">{int(adjusted['calories'])}</div>
+            <div style="color: white; font-size: 0.9rem; opacity: 0.8;">kcal</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Macronutrients in columns
+        st.markdown("**Macronutrients:**")
+        col_a, col_b, col_c = st.columns(3)
+        
+        with col_a:
+            st.metric("💪 Protein", f"{adjusted['protein']:.1f}g", 
+                     help="Essential for muscle growth and repair")
+        
+        with col_b:
+            st.metric("🍞 Carbs", f"{adjusted['carbs']:.1f}g",
+                     help="Primary energy source")
+        
+        with col_c:
+            st.metric("🥑 Fat", f"{adjusted['fat']:.1f}g",
+                     help="Essential for hormone production")
+        
+        st.divider()
+        st.caption("⚠️ Values are estimates from USDA FoodData Central and may vary.")
         
         # Save button
-        if st.button("💾 Save to Diary", type="primary", use_container_width=True, key="search_save"):
-            # Create meal entry
-            meal = {
-                'id': f"{datetime.now().timestamp()}",
-                'date': str(date.today()),
-                'time': datetime.now().strftime("%H:%M"),
-                'food_name': selected['name'],
-                'meal_type': meal_type,
-                'portion_size': f"{portion_amount} {label}",
-                'multiplier': multiplier,
-                'nutrition': adjusted,
-                'source': 'USDA Search',
-                'has_image': False
-            }
-            
-            # Save to meals
-            meals = app.load_json(app.MEALS_FILE, default={})
-            today = str(date.today())
-            
-            if today not in meals:
-                meals[today] = {}
-            if meal_type not in meals[today]:
-                meals[today][meal_type] = []
-            
-            meals[today][meal_type].append(meal)
-            app.save_json(app.MEALS_FILE, meals)
-            
-            st.success(f"✅ Added {selected['name']} to your {meal_type}!")
-            
-            # Clear selection
-            st.session_state['selected_food'] = None
-            st.rerun()
+        st.markdown("### 💾 Save This Meal")
+        col_save1, col_save2 = st.columns([2, 1])
+        
+        with col_save2:
+            if st.button("💾 Save to Log", type="primary", use_container_width=True, key="search_save"):
+                # Create meal entry
+                meal = {
+                    'id': f"{datetime.now().timestamp()}",
+                    'date': str(date.today()),
+                    'time': datetime.now().strftime("%H:%M"),
+                    'food_name': selected['name'],
+                    'meal_type': meal_type,
+                    'portion_size': f"{portion_amount} {conversion['unit']}",
+                    'multiplier': multiplier,
+                    'nutrition': adjusted,
+                    'source': 'USDA Search',
+                    'has_image': False
+                }
+                
+                # Save to meals
+                meals = app.load_json(app.MEALS_FILE, default={})
+                today = str(date.today())
+                
+                if today not in meals:
+                    meals[today] = {}
+                if meal_type not in meals[today]:
+                    meals[today][meal_type] = []
+                
+                meals[today][meal_type].append(meal)
+                app.save_json(app.MEALS_FILE, meals)
+                
+                st.success(f"✅ Meal saved to your {meal_type} log!")
+                st.balloons()
+                
+                # Clear selection
+                st.session_state['selected_food'] = None
+                st.rerun()
 
 
 def search_usda_foods(query, api_key, max_results=10):
