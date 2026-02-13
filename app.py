@@ -909,8 +909,9 @@ st.title("🍽️ Food Calorie Analyzer")
 st.markdown('<p class="subtitle">📸 Track your nutrition with AI-powered food analysis!</p>', unsafe_allow_html=True)
 
 # Create tabs for different features
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📸 Analyze Food", 
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📸 Analyze Food",
+    "🔍 Search Foods",
     "📊 Daily Summary", 
     "🎯 Goals", 
     "📅 History",
@@ -922,6 +923,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # Import tab modules
 import sys
 import tabs.tab_analyze as tab_analyze
+import tabs.tab_search as tab_search
 import tabs.tab_summary as tab_summary
 import tabs.tab_goals as tab_goals
 import tabs.tab_history as tab_history
@@ -931,24 +933,28 @@ import tabs.tab_quick_add as tab_quick_add
 with tab1:
     tab_analyze.render(sys.modules[__name__])
 
-# ==================== TAB 2: DAILY SUMMARY ====================
+# ==================== TAB 2: SEARCH FOODS ====================
 with tab2:
+    tab_search.render(sys.modules[__name__])
+
+# ==================== TAB 3: DAILY SUMMARY ====================
+with tab3:
     tab_summary.render(sys.modules[__name__])
 
-# ==================== TAB 3: GOALS ====================
-with tab3:
+# ==================== TAB 4: GOALS ====================
+with tab4:
     tab_goals.render(sys.modules[__name__])
 
-# ==================== TAB 4: HISTORY ====================
-with tab4:
+# ==================== TAB 5: HISTORY ====================
+with tab5:
     tab_history.render(sys.modules[__name__])
 
-# ==================== TAB 5: PROGRESS ====================
-with tab5:
+# ==================== TAB 6: PROGRESS ====================
+with tab6:
     tab_progress.render(sys.modules[__name__])
 
-# ==================== TAB 6: QUICK ADD ====================
-with tab6:
+# ==================== TAB 7: QUICK ADD ====================
+with tab7:
     tab_quick_add.render(sys.modules[__name__])
 
 # Footer
