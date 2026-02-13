@@ -1040,6 +1040,8 @@ def render_search_mode(app):
                 del st.session_state['selected_food']
                 if 'search_portion_value' in st.session_state:
                     del st.session_state['search_portion_value']
+                if 'search_query_text' in st.session_state:
+                    st.session_state['search_query_text'] = ""
                 st.rerun()
         
         with col2:
@@ -1214,114 +1216,111 @@ def render_search_mode(app):
                     del st.session_state['selected_food']
                     if 'search_portion_value' in st.session_state:
                         del st.session_state['search_portion_value']
+                    if 'search_query_text' in st.session_state:
+                        st.session_state['search_query_text'] = ""
                     st.rerun()
+        
+        # Exit early to prevent else block from executing
+        return
     
-    else:
-        # SEARCH INTERFACE - TWO COLUMN LAYOUT
-        col1, col2 = st.columns([1, 1])
+    # SEARCH INTERFACE - TWO COLUMN LAYOUT
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.subheader("Search Database")
         
-        with col1:
-            st.subheader("Search Database")
-            
-            # Visual search icon
-            st.markdown("""
-            <div style="
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 4rem;
-                border-radius: 15px;
-                text-align: center;
-                font-size: 6rem;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-                margin-bottom: 1rem;
-            ">
-                🔍
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("**USDA FoodData Central**")
-            st.caption("500,000+ foods in database")
-            st.caption("Search by name, brand, or category")
-            
-            st.markdown("---")
-            st.caption("**Example searches:**")
-            st.caption("• Chicken breast")
-            st.caption("• McDonalds Big Mac")
-            st.caption("• Apple")
-            st.caption("• White rice")
+        # Visual search icon
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 4rem;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 6rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            margin-bottom: 1rem;
+        ">
+            🔍
+        </div>
+        """, unsafe_allow_html=True)
         
-        with col2:
-            st.subheader("Search Results")
+        st.markdown("**USDA FoodData Central**")
+        st.caption("500,000+ foods in database")
+        st.caption("Search by name, brand, or category")
+        
+        st.markdown("---")
+        st.caption("**Example searches:**")
+        st.caption("• Chicken breast")
+        st.caption("• McDonalds Big Mac")
+        st.caption("• Apple")
+        st.caption("• White rice")
+    
+    with col2:
+        st.subheader("Search Results")
+            
+            # Initialize search_query in session state if not exists
+            if 'search_query_text' not in st.session_state:
+                st.session_state['search_query_text'] = ""
             
             # Search input
             search_query = st.text_input(
                 "Type a food name to search",
                 placeholder="e.g., chicken breast, apple, pizza, rice...",
                 help="Start typing to search USDA FoodData Central",
-                key="search_input"
+                key="search_input",
+                value=st.session_state['search_query_text']
             )
             
-            if search_query and len(search_query) >= 2:
-                # Show loading state
-                with st.spinner("Searching USDA database..."):
-                    # Search USDA database
-                    results = search_usda_foods(search_query, app.USDA_API_KEY)
+            # Update session state
+            st.session_state['search_query_text'] = search_query
+        
+        if search_query and len(search_query) >= 2:
+            # Show loading state
+            with st.spinner("Searching USDA database..."):
+                # Search USDA database
+                results = search_usda_foods(search_query, app.USDA_API_KEY)
+                
+                if results:
+                    st.success(f"✅ Found {len(results)} matching foods")
                     
-                    if results:
-                        st.success(f"✅ Found {len(results)} matching foods")
-                        
-                        # Display results as expandable cards
-                        for idx, food in enumerate(results):
-                            with st.expander(f"🍴 {food['name'][:50]}{'...' if len(food['name']) > 50 else ''}", expanded=(idx == 0)):
-                                col1, col2 = st.columns([2, 1])
+                    # Display results as expandable cards
+                    for idx, food in enumerate(results):
+                        with st.expander(f"🍴 {food['name'][:50]}{'...' if len(food['name']) > 50 else ''}", expanded=(idx == 0)):
+                            col1, col2 = st.columns([2, 1])
+                            
+                            with col1:
+                                st.caption(f"**Brand:** {food.get('brand', 'Generic')}")
+                                st.caption(f"**Source:** {food.get('dataType', 'USDA')}")
+                            
+                            with col2:
+                                if st.button("✅ Select", key=f"select_{idx}", type="primary", use_container_width=True):
+                                    st.session_state['selected_food'] = food
+                                    # Clear search query when food is selected
+                                    if 'search_query_text' in st.session_state:
+                                        st.session_state['search_query_text'] = ""
+                                    st.rerun()
+                            
+                            # Nutrition info (per 100g)
+                            if food.get('nutrition'):
+                                st.markdown("**Nutrition (per 100g):**")
+                               
+                                nutrients = food['nutrition']
+                                col1, col2, col3, col4 = st.columns(4)
                                 
                                 with col1:
-                                    st.caption(f"**Brand:** {food.get('brand', 'Generic')}")
-                                    st.caption(f"**Source:** {food.get('dataType', 'USDA')}")
-                                
+                                    st.metric("🔥", f"{nutrients.get('calories', 0):.0f}")
                                 with col2:
-                                    if st.button("✅ Select", key=f"select_{idx}", type="primary", use_container_width=True):
-                                        st.session_state['selected_food'] = food
-                                        st.rerun()
-                                
-                                # Nutrition info (per 100g)
-                                if food.get('nutrition'):
-                                    st.markdown("**Nutrition (per 100g):**")
-                                    
-                                    nutrients = food['nutrition']
-                                    col1, col2, col3, col4 = st.columns(4)
-                                    
-                                    with col1:
-                                        st.metric("🔥", f"{nutrients.get('calories', 0):.0f}")
-                                    with col2:
-                                        st.metric("💪", f"{nutrients.get('protein', 0):.1f}g")
-                                    with col3:
-                                        st.metric("🍞", f"{nutrients.get('carbs', 0):.1f}g")
-                                    with col4:
-                                        st.metric("🥑", f"{nutrients.get('fat', 0):.1f}g")
-                    else:
-                        st.info("💡 No results found. Try a different search term.")
-            elif search_query:
-                st.info("👆 Type at least 2 characters to search")
-            else:
-                st.info("👆 Enter a food name above to start searching")
-
-
-def search_usda_foods(query, api_key, max_results=10):
-    """Search USDA FoodData Central and return formatted results"""
-    import requests
-    
-    try:
-        url = "https://api.nal.usda.gov/fdc/v1/foods/search"
-        params = {
-            "api_key": api_key,
-            "query": query,
-            "pageSize": max_results,
-            "dataType": ["Survey (FNDDS)", "Branded", "Foundation", "SR Legacy"]
-        }
-        
-        response = requests.get(url, params=params, timeout=10)
-        
-        if response.status_code != 200:
+                                    st.metric("💪", f"{nutrients.get('protein', 0):.1f}g")
+                                with col3:
+                                    st.metric("🍞", f"{nutrients.get('carbs', 0):.1f}g")
+                                with col4:
+                                    st.metric("🥑", f"{nutrients.get('fat', 0):.1f}g")
+                else:
+                    st.info("💡 No results found. Try a different search term.")
+        elif search_query:
+            st.info("👆 Type at least 2 characters to search")
+        else:
+            st.info("👆 Enter a food name above to start searching")
             print(f"[USDA Search] Error: {response.status_code}")
             return []
         
