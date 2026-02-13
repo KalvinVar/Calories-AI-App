@@ -59,6 +59,7 @@ def render(app):
     if scan_mode == "🔍 Search Foods":
         # FOOD SEARCH MODE
         render_search_mode(app)
+        return  # Exit early - search mode handles everything
         
     elif scan_mode == "🍕 Food Photo":
         st.markdown("### 📤 Upload Your Food Image")
