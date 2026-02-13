@@ -68,6 +68,7 @@ def render(app):
     st.markdown("### 💧 Water Intake")
     water_log = app.load_water_log()
     current_water = water_log.get(today, 0)
+    current_water = int(max(0, min(20, current_water)))  # Clamp to valid range and ensure int
     
     col1, col2 = st.columns([3, 1])
     with col1:

@@ -79,11 +79,29 @@ def render(app):
                                 if st.button(f"🗑️ Delete", key=f"delete_meal_{date_str}_{meal_type_name}_{idx}", type="secondary", use_container_width=True):
                                     # Load all meals
                                     all_meals = app.load_meals()
-                                    # Remove this specific meal
+                                    # Remove this specific meal by index match
                                     if date_str in all_meals:
-                                        all_meals[date_str].remove(meal)
+                                        meals_list = all_meals[date_str]
+                                        # Find by id if available, otherwise by index
+                                        meal_id = meal.get('id', None)
+                                        removed = False
+                                        if meal_id:
+                                            for i, m in enumerate(meals_list):
+                                                if m.get('id') == meal_id:
+                                                    meals_list.pop(i)
+                                                    removed = True
+                                                    break
+                                        if not removed:
+                                            # Fallback: remove by matching food_name and timestamp
+                                            for i, m in enumerate(meals_list):
+                                                if m.get('food_name') == meal.get('food_name') and m.get('timestamp') == meal.get('timestamp'):
+                                                    meals_list.pop(i)
+                                                    removed = True
+                                                    break
+                                        if not removed and idx < len(meals_list):
+                                            meals_list.pop(idx)
                                         # If no meals left for this date, remove the date entry
-                                        if len(all_meals[date_str]) == 0:
+                                        if len(meals_list) == 0:
                                             del all_meals[date_str]
                                         app.save_json(app.MEALS_FILE, all_meals)
                                         st.success(f"✅ Deleted: {meal['food_name']}")
@@ -162,6 +180,7 @@ def render(app):
         st.error("⚠️ This will permanently delete ALL your meal history!")
         
         confirm_clear = st.checkbox("I understand this cannot be undone", key="confirm_clear")
+        clear_weight = st.checkbox("Also clear weight tracking history", key="clear_weight")
         
         if confirm_clear:
             if st.button("💣 Delete Everything", key="delete_all", type="primary"):
@@ -169,7 +188,7 @@ def render(app):
                 app.save_json(app.MEALS_FILE, {})
                 app.save_json(app.WATER_FILE, {})
                 # Optionally clear weight log
-                if st.checkbox("Also clear weight tracking history", key="clear_weight"):
+                if clear_weight:
                     app.save_json(app.WEIGHT_FILE, [])
                 st.success("✅ All data cleared!")
                 st.rerun()
@@ -208,8 +227,8 @@ def render(app):
                         'Protein (g)': round(nutrition['protein'] * multiplier, 1),
                         'Carbs (g)': round(nutrition['carbs'] * multiplier, 1),
                         'Fat (g)': round(nutrition['fat'] * multiplier, 1),
-                        'Fiber (g)': round(nutrition['fiber'] * multiplier, 1),
-                        'Sugar (g)': round(nutrition['sugar'] * multiplier, 1)
+                        'Fiber (g)': round(nutrition.get('fiber', 0) * multiplier, 1),
+                        'Sugar (g)': round(nutrition.get('sugar', 0) * multiplier, 1)
                     })
             
             current += timedelta(days=1)

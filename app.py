@@ -302,7 +302,7 @@ def load_json(file_path, default=None):
         try:
             with open(file_path, 'r') as f:
                 return json.load(f)
-        except:
+        except (json.JSONDecodeError, IOError, OSError):
             return default
     return default
 

@@ -220,7 +220,8 @@ def render(app):
     
     if recent_foods:
         for food in recent_foods:
-            if st.button(f"➕ {food['name']}", key=f"recent_{food['meal']['id']}", use_container_width=True):
+            meal_key = food['meal'].get('id', f"recent_{food['name'][:20]}_{hash(food['name']) % 10000}")
+            if st.button(f"➕ {food['name']}", key=f"recent_{meal_key}", use_container_width=True):
                 # Quick add recent food
                 meal_id = datetime.now().strftime("%Y%m%d_%H%M%S")
                 meal_data = food['meal'].copy()

@@ -82,20 +82,24 @@ def render(app):
             if goal_type != "Maintain Weight":
                 target_weight_label = f"Target Weight ({weight_unit})"
                 if weight_unit == "kg":
+                    default_target = weight_input - 5 if goal_type == "Lose Weight" else weight_input + 5
+                    default_target = max(40.0, min(200.0, default_target))  # Clamp within bounds
                     target_weight_input = st.number_input(
                         target_weight_label, 
                         min_value=40.0, 
                         max_value=200.0, 
-                        value=weight_input - 5 if goal_type == "Lose Weight" else weight_input + 5,
+                        value=default_target,
                         step=0.5
                     )
                     target_weight_kg = target_weight_input
                 else:
+                    default_target = weight_input - 11 if goal_type == "Lose Weight" else weight_input + 11
+                    default_target = max(88.0, min(440.0, default_target))  # Clamp within bounds
                     target_weight_input = st.number_input(
                         target_weight_label,
                         min_value=88.0,
                         max_value=440.0,
-                        value=weight_input - 11 if goal_type == "Lose Weight" else weight_input + 11,
+                        value=default_target,
                         step=1.0
                     )
                     target_weight_kg = target_weight_input * 0.453592
@@ -150,6 +154,11 @@ def render(app):
                 # Calculate weight difference
                 weight_diff_kg = abs(target_weight_kg - weight_kg)
                 
+                # Handle already at target weight
+                if weight_diff_kg < 0.1:
+                    st.info("✅ You're already at your target weight! Consider switching to **Maintain Weight** mode.")
+                    st.stop()
+                
                 # Use user-selected pace (0.5-1.0 kg/week)
                 # 1kg fat = ~7700 calories, so daily adjustment = (weekly_rate * 7700) / 7
                 weekly_rate = pace
@@ -163,7 +172,7 @@ def render(app):
                         target_calories = min_calories
                         # Recalculate actual rate based on safe minimum
                         actual_daily_deficit = tdee - min_calories
-                        weekly_rate = (actual_daily_deficit * 7) / 7700
+                        weekly_rate = max(0.01, (actual_daily_deficit * 7) / 7700)  # Guard against negative/zero
                         st.warning(f"⚠️ Adjusted to safe minimum ({min_calories} cal/day). Actual rate: ~{weekly_rate:.2f} kg/week")
                 else:  # Gain Weight
                     target_calories = tdee + daily_cal_adjustment

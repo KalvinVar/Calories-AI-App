@@ -377,7 +377,24 @@ def render_all_time_view(exercises, app):
                     st.caption(f"🔥 {int(ex.get('calories_burned', 0))} cal")
             
             # Delete entire day button
-            if st.button(f"🗑️ Delete all exercises for {day_str}", key=f"del_day_{day_str}"):
-                del exercises[day_str]
-                app.save_json(app.DATA_DIR / "exercises.json", exercises)
-                st.rerun()
+            confirm_key = f"confirm_del_day_{day_str}"
+            if confirm_key not in st.session_state:
+                st.session_state[confirm_key] = False
+            
+            if st.session_state[confirm_key]:
+                st.warning(f"⚠️ Are you sure you want to delete all exercises for {day_str}?")
+                confirm_col1, confirm_col2 = st.columns(2)
+                with confirm_col1:
+                    if st.button("✅ Yes, delete", key=f"yes_del_{day_str}", type="primary"):
+                        del exercises[day_str]
+                        app.save_json(app.DATA_DIR / "exercises.json", exercises)
+                        st.session_state[confirm_key] = False
+                        st.rerun()
+                with confirm_col2:
+                    if st.button("❌ Cancel", key=f"no_del_{day_str}"):
+                        st.session_state[confirm_key] = False
+                        st.rerun()
+            else:
+                if st.button(f"🗑️ Delete all exercises for {day_str}", key=f"del_day_{day_str}"):
+                    st.session_state[confirm_key] = True
+                    st.rerun()
