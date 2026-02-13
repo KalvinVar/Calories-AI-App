@@ -201,7 +201,7 @@ def render(app):
             with rec_col2:
                 st.metric("Protein", f"{protein_grams}g")
             with rec_col3:
-                st.metric("Carbs", f"{carbs_grams}g")
+                st.metric("Carbs/Sugar", f"{carbs_grams}g")
             with rec_col4:
                 st.metric("Fat", f"{fat_grams}g")
             
@@ -265,7 +265,7 @@ def render(app):
     
     with col2:
         carbs_goal = st.number_input(
-            "🍞 Carbs (g)",
+            "🍞 Carbs/Sugar (g)",
             min_value=50,
             max_value=500,
             value=current_goals['carbs'],

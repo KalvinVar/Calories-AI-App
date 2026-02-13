@@ -41,7 +41,7 @@ def render(app):
         with tot_col2:
             st.metric("Protein", f"{round(daily_totals['protein'], 1)}g")
         with tot_col3:
-            st.metric("Carbs", f"{round(daily_totals['carbs'], 1)}g")
+            st.metric("Carbs/Sugar", f"{round(daily_totals['carbs'], 1)}g")
         with tot_col4:
             st.metric("Fat", f"{round(daily_totals['fat'], 1)}g")
         
@@ -118,7 +118,7 @@ def render(app):
                             with info_col2:
                                 st.metric("Protein", f"{round(nutrition['protein'] * multiplier, 1)}g")
                             with info_col3:
-                                st.metric("Carbs", f"{round(nutrition['carbs'] * multiplier, 1)}g")
+                                st.metric("Carbs/Sugar", f"{round(nutrition['carbs'] * multiplier, 1)}g")
                             with info_col4:
                                 st.metric("Fat", f"{round(nutrition['fat'] * multiplier, 1)}g")
                         
@@ -225,7 +225,7 @@ def render(app):
                         'Portion': meal.get('portion_text', 'N/A'),
                         'Calories': int(nutrition['calories'] * multiplier),
                         'Protein (g)': round(nutrition['protein'] * multiplier, 1),
-                        'Carbs (g)': round(nutrition['carbs'] * multiplier, 1),
+                        'Carbs/Sugar (g)': round(nutrition['carbs'] * multiplier, 1),
                         'Fat (g)': round(nutrition['fat'] * multiplier, 1),
                         'Fiber (g)': round(nutrition.get('fiber', 0) * multiplier, 1),
                         'Sugar (g)': round(nutrition.get('sugar', 0) * multiplier, 1)

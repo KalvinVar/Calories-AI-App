@@ -37,7 +37,7 @@ def render(app):
                     st.metric("Protein", f"{usda_results['protein']}g")
                 
                 with quick_col2:
-                    st.metric("Carbs", f"{usda_results['carbs']}g")
+                    st.metric("Carbs/Sugar", f"{usda_results['carbs']}g")
                     st.metric("Fat", f"{usda_results['fat']}g")
                 
                 with quick_col3:
@@ -143,7 +143,7 @@ def render(app):
                                 st.metric("Protein", f"{product_info['protein']}g")
                             
                             with bc_col2:
-                                st.metric("Carbs", f"{product_info['carbs']}g")
+                                st.metric("Carbs/Sugar", f"{product_info['carbs']}g")
                                 st.metric("Fat", f"{product_info['fat']}g")
                             
                             with bc_col3:

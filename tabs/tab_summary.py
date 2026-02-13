@@ -50,7 +50,7 @@ def render(app):
     
     with col2:
         carbs_progress = min(totals['carbs'] / goals['carbs'], 1.0) if goals['carbs'] > 0 else 0
-        st.markdown(f"**🍞 Carbs**")
+        st.markdown(f"**🍞 Carbs/Sugar**")
         st.metric("", f"{round(totals['carbs'], 1)}g")
         st.progress(carbs_progress)
         st.caption(f"Goal: {goals['carbs']}g")
@@ -113,7 +113,7 @@ def render(app):
                     st.markdown(f"**Portion:** {meal.get('portion_text', 'N/A')}")
                     st.markdown(f"**Calories:** {int(nutrition['calories'] * multiplier)} kcal")
                     st.markdown(f"**Protein:** {round(nutrition['protein'] * multiplier, 1)}g")
-                    st.markdown(f"**Carbs:** {round(nutrition['carbs'] * multiplier, 1)}g")
+                    st.markdown(f"**Carbs/Sugar:** {round(nutrition['carbs'] * multiplier, 1)}g")
                     st.markdown(f"**Fat:** {round(nutrition['fat'] * multiplier, 1)}g")
     else:
         st.info("No meals logged today. Add a meal from the 'Analyze Food' tab!")

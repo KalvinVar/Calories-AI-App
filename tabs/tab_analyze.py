@@ -493,7 +493,7 @@ def render(app):
                                          help="Essential for muscle growth and repair")
                             
                             with col_b:
-                                st.metric("🍞 Carbs", f"{round(product_info['carbs'] * bc_portion_multiplier, 1)}g",
+                                st.metric("🍞 Carbs/Sugar", f"{round(product_info['carbs'] * bc_portion_multiplier, 1)}g",
                                          help="Primary energy source")
                             
                             with col_c:
@@ -559,7 +559,7 @@ Data Source: Open Food Facts
 Nutritional Facts:
 - Calories: {int(product_info['calories'] * bc_portion_multiplier)} kcal
 - Protein: {round(product_info['protein'] * bc_portion_multiplier, 1)}g
-- Carbohydrates: {round(product_info['carbs'] * bc_portion_multiplier, 1)}g
+- Carbs/Sugar: {round(product_info['carbs'] * bc_portion_multiplier, 1)}g
 - Fat: {round(product_info['fat'] * bc_portion_multiplier, 1)}g
 - Fiber: {round(product_info['fiber'] * bc_portion_multiplier, 1)}g
 - Sugar: {round(product_info['sugar'] * bc_portion_multiplier, 1)}g
@@ -1167,7 +1167,7 @@ USDA nutrition data is standardized per **100 grams** (about 3.5 oz).
                             with col2:
                                 st.metric("Protein", f"{item_prot}g")
                             with col3:
-                                st.metric("Carbs", f"{item_carb}g")
+                                st.metric("Carbs/Sugar", f"{item_carb}g")
                         
                         # Add to combined totals
                         combined_nutrition['calories'] += item_cal
@@ -1225,7 +1225,7 @@ USDA nutrition data is standardized per **100 grams** (about 3.5 oz).
                     with col_a:
                         st.metric("💪 Protein", f"{round(combined_nutrition['protein'], 1)}g")
                     with col_b:
-                        st.metric("🍞 Carbs", f"{round(combined_nutrition['carbs'], 1)}g")
+                        st.metric("🍞 Carbs/Sugar", f"{round(combined_nutrition['carbs'], 1)}g")
                     with col_c:
                         st.metric("🥑 Fat", f"{round(combined_nutrition['fat'], 1)}g")
                     
@@ -1297,7 +1297,7 @@ Combined Meal: {len(selected_foods)} items
 Total Nutritional Facts:
 - Calories: {int(combined_nutrition['calories'])} kcal
 - Protein: {round(combined_nutrition['protein'], 1)}g
-- Carbohydrates: {round(combined_nutrition['carbs'], 1)}g
+- Carbs/Sugar: {round(combined_nutrition['carbs'], 1)}g
 - Fat: {round(combined_nutrition['fat'], 1)}g
 - Fiber: {round(combined_nutrition['fiber'], 1)}g
 - Sugar: {round(combined_nutrition['sugar'], 1)}g
@@ -1314,7 +1314,7 @@ Data Source: {component['source']}
 Nutritional Facts:
 - Calories: {int(combined_nutrition['calories'])} kcal
 - Protein: {round(combined_nutrition['protein'], 1)}g
-- Carbohydrates: {round(combined_nutrition['carbs'], 1)}g
+- Carbs/Sugar: {round(combined_nutrition['carbs'], 1)}g
 - Fat: {round(combined_nutrition['fat'], 1)}g
 - Fiber: {round(combined_nutrition['fiber'], 1)}g
 - Sugar: {round(combined_nutrition['sugar'], 1)}g
@@ -1421,7 +1421,7 @@ def render_search_mode(app):
                 st.caption(f"🔥 {nutrition.get('calories', 0):.0f} cal")
                 st.caption(f"💪 {nutrition.get('protein', 0):.1f}g protein")
             with col_n2:
-                st.caption(f"🍞 {nutrition.get('carbs', 0):.1f}g carbs")
+                st.caption(f"🍞 {nutrition.get('carbs', 0):.1f}g carbs/sugar")
                 st.caption(f"🥑 {nutrition.get('fat', 0):.1f}g fat")
             
             # Button to go back to search
@@ -1818,7 +1818,7 @@ def render_search_mode(app):
                          help="Essential for muscle growth and repair")
             
             with col_b:
-                st.metric("🍞 Carbs", f"{adjusted['carbs']:.1f}g",
+                st.metric("🍞 Carbs/Sugar", f"{adjusted['carbs']:.1f}g",
                          help="Primary energy source")
             
             with col_c:
@@ -2097,7 +2097,7 @@ def render_search_mode(app):
                         with col2:
                             st.metric("💪 Protein", f"{pro:.1f}g")
                         with col3:
-                            st.metric("🍞 Carbs", f"{carb:.1f}g")
+                            st.metric("🍞 Carbs/Sugar", f"{carb:.1f}g")
                         with col4:
                             st.metric("🥑 Fat", f"{fat:.1f}g")
             else:
