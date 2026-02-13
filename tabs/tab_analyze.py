@@ -1303,7 +1303,7 @@ def render_search_mode(app):
                             # Nutrition info (per 100g)
                             if food.get('nutrition'):
                                 st.markdown("**Nutrition (per 100g):**")
-                               
+                                
                                 nutrients = food['nutrition']
                                 col1, col2, col3, col4 = st.columns(4)
                                 
