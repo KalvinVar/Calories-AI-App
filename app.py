@@ -909,13 +909,15 @@ st.title("🍽️ Food Calorie Analyzer")
 st.markdown('<p class="subtitle">📸 Track your nutrition with AI-powered food analysis!</p>', unsafe_allow_html=True)
 
 # Create tabs for different features
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📸 Analyze Food",
     "📊 Daily Summary", 
     "🎯 Goals", 
     "📅 History",
     "📈 Progress",
-    "⚙️ Quick Add"
+    "⚙️ Quick Add",
+    "🏃 Exercise",
+    "📓 Workout Log"
 ])
 
 # ==================== TAB 1: ANALYZE FOOD ====================
@@ -927,6 +929,8 @@ import tabs.tab_goals as tab_goals
 import tabs.tab_history as tab_history
 import tabs.tab_progress as tab_progress
 import tabs.tab_quick_add as tab_quick_add
+import tabs.tab_exercise as tab_exercise
+import tabs.tab_workout_log as tab_workout_log
 
 with tab1:
     tab_analyze.render(sys.modules[__name__])
@@ -950,6 +954,14 @@ with tab5:
 # ==================== TAB 6: QUICK ADD ====================
 with tab6:
     tab_quick_add.render(sys.modules[__name__])
+
+# ==================== TAB 7: EXERCISE TRACKER ====================
+with tab7:
+    tab_exercise.render(sys.modules[__name__])
+
+# ==================== TAB 8: WORKOUT LOG ====================
+with tab8:
+    tab_workout_log.render(sys.modules[__name__])
 
 # Footer
 st.markdown("")
