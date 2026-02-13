@@ -1042,6 +1042,10 @@ def render_search_mode(app):
                     del st.session_state['search_portion_value']
                 if 'search_query_text' in st.session_state:
                     st.session_state['search_query_text'] = ""
+                if 'search_results' in st.session_state:
+                    st.session_state['search_results'] = None
+                if 'last_search_query' in st.session_state:
+                    st.session_state['last_search_query'] = ""
                 st.rerun()
         
         with col2:
@@ -1218,6 +1222,10 @@ def render_search_mode(app):
                         del st.session_state['search_portion_value']
                     if 'search_query_text' in st.session_state:
                         st.session_state['search_query_text'] = ""
+                    if 'search_results' in st.session_state:
+                        st.session_state['search_results'] = None
+                    if 'last_search_query' in st.session_state:
+                        st.session_state['last_search_query'] = ""
                     st.rerun()
         
         # Exit early to prevent else block from executing
@@ -1258,9 +1266,22 @@ def render_search_mode(app):
     with col2:
         st.subheader("Search Results")
         
-        # Initialize search_query in session state if not exists
+        # Initialize session state for search
         if 'search_query_text' not in st.session_state:
             st.session_state['search_query_text'] = ""
+        if 'search_results' not in st.session_state:
+            st.session_state['search_results'] = None
+        if 'last_search_query' not in st.session_state:
+            st.session_state['last_search_query'] = ""
+        
+        # Handle pending selection from previous rerun (button click)
+        if 'pending_food_select' in st.session_state and st.session_state['pending_food_select'] is not None:
+            st.session_state['selected_food'] = st.session_state['pending_food_select']
+            st.session_state['pending_food_select'] = None
+            st.session_state['search_results'] = None
+            st.session_state['last_search_query'] = ""
+            st.session_state['search_query_text'] = ""
+            st.rerun()
         
         # Search input
         search_query = st.text_input(
@@ -1275,48 +1296,51 @@ def render_search_mode(app):
         st.session_state['search_query_text'] = search_query
         
         if search_query and len(search_query) >= 2:
-            # Show loading state
-            with st.spinner("Searching USDA database..."):
-                # Search USDA database
-                results = search_usda_foods(search_query, app.USDA_API_KEY)
+            # Only call API if query changed (avoid re-fetching on every rerun)
+            if search_query != st.session_state.get('last_search_query', ''):
+                with st.spinner("Searching USDA database..."):
+                    results = search_usda_foods(search_query, app.USDA_API_KEY)
+                    st.session_state['search_results'] = results
+                    st.session_state['last_search_query'] = search_query
+            
+            # Use cached results
+            results = st.session_state.get('search_results', None)
+            
+            if results:
+                st.success(f"✅ Found {len(results)} matching foods")
                 
-                if results:
-                    st.success(f"✅ Found {len(results)} matching foods")
-                    
-                    # Display results as expandable cards
-                    for idx, food in enumerate(results):
-                        with st.expander(f"🍴 {food['name'][:50]}{'...' if len(food['name']) > 50 else ''}", expanded=(idx == 0)):
-                            col1, col2 = st.columns([2, 1])
+                # Display results as expandable cards
+                for idx, food in enumerate(results):
+                    with st.expander(f"🍴 {food['name'][:50]}{'...' if len(food['name']) > 50 else ''}", expanded=(idx == 0)):
+                        col1, col2 = st.columns([2, 1])
+                        
+                        with col1:
+                            st.caption(f"**Brand:** {food.get('brand', 'Generic')}")
+                            st.caption(f"**Source:** {food.get('dataType', 'USDA')}")
+                        
+                        with col2:
+                            if st.button("✅ Select", key=f"select_{idx}", type="primary", use_container_width=True):
+                                # Store selection for next rerun (avoids lost state)
+                                st.session_state['pending_food_select'] = food
+                                st.rerun()
+                        
+                        # Nutrition info (per 100g)
+                        if food.get('nutrition'):
+                            st.markdown("**Nutrition (per 100g):**")
+                            
+                            nutrients = food['nutrition']
+                            col1, col2, col3, col4 = st.columns(4)
                             
                             with col1:
-                                st.caption(f"**Brand:** {food.get('brand', 'Generic')}")
-                                st.caption(f"**Source:** {food.get('dataType', 'USDA')}")
-                            
+                                st.metric("🔥", f"{nutrients.get('calories', 0):.0f}")
                             with col2:
-                                if st.button("✅ Select", key=f"select_{idx}", type="primary", use_container_width=True):
-                                    st.session_state['selected_food'] = food
-                                    # Clear search query when food is selected
-                                    if 'search_query_text' in st.session_state:
-                                        st.session_state['search_query_text'] = ""
-                                    st.rerun()
-                            
-                            # Nutrition info (per 100g)
-                            if food.get('nutrition'):
-                                st.markdown("**Nutrition (per 100g):**")
-                                
-                                nutrients = food['nutrition']
-                                col1, col2, col3, col4 = st.columns(4)
-                                
-                                with col1:
-                                    st.metric("🔥", f"{nutrients.get('calories', 0):.0f}")
-                                with col2:
-                                    st.metric("💪", f"{nutrients.get('protein', 0):.1f}g")
-                                with col3:
-                                    st.metric("🍞", f"{nutrients.get('carbs', 0):.1f}g")
-                                with col4:
-                                    st.metric("🥑", f"{nutrients.get('fat', 0):.1f}g")
-                else:
-                    st.info("💡 No results found. Try a different search term.")
+                                st.metric("💪", f"{nutrients.get('protein', 0):.1f}g")
+                            with col3:
+                                st.metric("🍞", f"{nutrients.get('carbs', 0):.1f}g")
+                            with col4:
+                                st.metric("🥑", f"{nutrients.get('fat', 0):.1f}g")
+            else:
+                st.info("💡 No results found. Try a different search term.")
         elif search_query:
             st.info("👆 Type at least 2 characters to search")
         else:
