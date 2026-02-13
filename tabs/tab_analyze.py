@@ -982,76 +982,16 @@ def render_search_mode(app):
     import requests
     from datetime import date
     
-    st.markdown("### 🔍 Search for Foods")
-    st.caption("Type a food name to search the USDA database")
-    
-    # Search input
-    search_query = st.text_input(
-        "Search for a food",
-        placeholder="e.g., chicken breast, apple, pizza, rice...",
-        help="Start typing to search USDA FoodData Central",
-        key="search_input"
-    )
-    
-    if search_query and len(search_query) >= 2:
-        # Show loading state
-        with st.spinner("Searching USDA database..."):
-            # Search USDA database
-            results = search_usda_foods(search_query, app.USDA_API_KEY)
-            
-            if results:
-                st.success(f"✅ Found {len(results)} matching foods")
-                
-                # Display results as expandable cards
-                for idx, food in enumerate(results):
-                    with st.expander(f"🍴 {food['name']}", expanded=(idx == 0)):
-                        col1, col2 = st.columns([2, 1])
-                        
-                        with col1:
-                            st.markdown(f"**Brand:** {food.get('brand', 'Generic')}")
-                            st.markdown(f"**Source:** {food.get('dataType', 'USDA')}")
-                        
-                        with col2:
-                            if st.button("✅ Select This", key=f"select_{idx}", type="primary", use_container_width=True):
-                                st.session_state['selected_food'] = food
-                                st.rerun()
-                        
-                        # Nutrition info (per 100g)
-                        if food.get('nutrition'):
-                            st.markdown("#### 📊 Nutrition Facts (per 100g)")
-                            
-                            nutrients = food['nutrition']
-                            col1, col2, col3, col4 = st.columns(4)
-                            
-                            with col1:
-                                st.metric("🔥 Calories", f"{nutrients.get('calories', 0):.0f}")
-                            with col2:
-                                st.metric("💪 Protein", f"{nutrients.get('protein', 0):.1f}g")
-                            with col3:
-                                st.metric("🍞 Carbs", f"{nutrients.get('carbs', 0):.1f}g")
-                            with col4:
-                                st.metric("🥑 Fat", f"{nutrients.get('fat', 0):.1f}g")
-            else:
-                st.info("💡 No results found. Try a different search term or check spelling.")
-    elif search_query:
-        st.info("👆 Type at least 2 characters to search")
-    
-    # If a food is selected, show portion input and save option
+    # Check if a food is already selected
     if 'selected_food' in st.session_state and st.session_state.get('selected_food'):
-        st.divider()
-        selected = st.session_state['selected_food']
+        # TWO-COLUMN LAYOUT - MATCHES FOOD PHOTO & BARCODE MODES
+        col1, col2 = st.columns([1, 1])
         
-        # Header
-        st.markdown("### ✏️ Selected Product")
-        st.markdown(f"**{selected.get('brand', 'Generic')}** - {selected['name']}")
-        
-        # Product display section
-        col_img, col_info = st.columns([1, 2])
-        
-        with col_img:
-            st.markdown("**Product Photo**")
+        with col1:
+            st.subheader("Selected Food")
+            selected = st.session_state['selected_food']
             
-            # Show a food emoji based on category
+            # Show emoji based on category (matches barcode mode)
             category = app.detect_food_category(selected['name'])
             emoji_map = {
                 'beverage': '🥤', 'meat': '🥩', 'pizza': '🍕', 'burger': '🍔',
@@ -1061,235 +1001,309 @@ def render_search_mode(app):
             }
             food_emoji = emoji_map.get(category, '🍽️')
             
+            # Large emoji display (matches barcode mode styling)
             st.markdown(f"""
             <div style="
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 3rem;
+                padding: 4rem;
                 border-radius: 15px;
                 text-align: center;
-                font-size: 5rem;
+                font-size: 6rem;
                 box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                margin-bottom: 1rem;
             ">
                 {food_emoji}
             </div>
             """, unsafe_allow_html=True)
-        
-        with col_info:
-            # Show nutrition per 100g
-            st.markdown("**Nutrition Facts (per 100g)**")
+            
+            # Food info
+            st.markdown(f"**{selected['name']}**")
+            st.caption(f"Brand: {selected.get('brand', 'Generic')}")
+            st.caption(f"Source: {selected.get('dataType', 'USDA')}")
+            
+            # Base nutrition (per 100g) - compact view
+            st.markdown("---")
+            st.caption("**Base Nutrition (per 100g):**")
             nutrition = selected['nutrition']
             
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("🔥 Cal", f"{nutrition.get('calories', 0):.0f}")
-            with col2:
-                st.metric("💪 Pro", f"{nutrition.get('protein', 0):.1f}g")
-            with col3:
-                st.metric("🍞 Carbs", f"{nutrition.get('carbs', 0):.1f}g")
-            with col4:
-                st.metric("🥑 Fat", f"{nutrition.get('fat', 0):.1f}g")
-        
-        st.divider()
-        
-        # Portion adjustment section
-        st.markdown("### 🍴 Adjust Your Portion Size")
-        
-        # Detect category for smart defaults
-        conversion = app.get_serving_conversion(category)
-        
-        # Show category info
-        if category != 'other':
-            st.caption(f"✨ Smart serving detected: {selected['name']} ({category})")
-        
-        # Main portion input
-        st.markdown(f"**{conversion['label']}**")
-        
-        # Get defaults based on category
-        if category in ['cookies', 'bread']:
-            default_amount, max_amount, step = 3, 20, 1
-            quick_sizes = [1, 2, 3, 5, 10]
-        elif category in ['pizza', 'fruit', 'salad']:
-            default_amount, max_amount, step = 2, 8, 1
-            quick_sizes = [1, 2, 3, 4]
-        elif category in ['burger', 'candy']:
-            default_amount, max_amount, step = 1, 5, 1
-            quick_sizes = [1, 2, 3]
-        elif category in ['meat']:
-            default_amount, max_amount, step = 100, 500, 25
-            quick_sizes = [100, 150, 200, 300]
-        elif category in ['beverage']:
-            default_amount, max_amount, step = 250, 2000, 50
-            quick_sizes = [250, 330, 500, 750, 1000]
-        elif category in ['rice', 'pasta', 'soup', 'vegetables']:
-            default_amount, max_amount, step = 1.0, 5.0, 0.5
-            quick_sizes = [0.5, 1, 1.5, 2, 3]
-        elif category in ['fries', 'snacks']:
-            default_amount, max_amount, step = 1.0, 5.0, 0.5
-            quick_sizes = [0.5, 1, 1.5, 2]
-        else:
-            default_amount, max_amount, step = 2.0, 5.0, 0.5
-            quick_sizes = [1, 2, 3, 4]
-        
-        # Initialize portion amount in session state
-        if 'search_portion_value' not in st.session_state:
-            st.session_state['search_portion_value'] = default_amount
-        
-        # Type-safe number input
-        if isinstance(step, int):
-            portion_amount = st.number_input(
-                f"{conversion['label']}",
-                min_value=int(step),
-                max_value=int(max_amount),
-                value=int(st.session_state['search_portion_value']),
-                step=int(step),
-                key="search_portion",
-                label_visibility="collapsed"
-            )
-        else:
-            portion_amount = st.number_input(
-                f"{conversion['label']}",
-                min_value=float(step),
-                max_value=float(max_amount),
-                value=float(st.session_state['search_portion_value']),
-                step=float(step),
-                key="search_portion",
-                label_visibility="collapsed"
-            )
-        
-        # Quick size buttons
-        st.markdown("**Quick sizes:**")
-        quick_cols = st.columns(len(quick_sizes))
-        for idx, size in enumerate(quick_sizes):
-            with quick_cols[idx]:
-                if isinstance(size, float):
-                    btn_label = f"{size:.1f}"
-                else:
-                    btn_label = str(size)
-                if st.button(btn_label, key=f"quick_{idx}", use_container_width=True):
-                    st.session_state['search_portion_value'] = size
-                    st.rerun()
-        
-        # Calculate multiplier using the app's function
-        multiplier = app.calculate_multiplier(category, portion_amount)
-        
-        # Show calculation
-        total_grams = int(multiplier * 100)
-        st.caption(f"≈ {total_grams}g total ({portion_amount} {conversion['unit']} × {conversion['grams_per_unit']}g per {conversion['unit'][:-1] if conversion['unit'].endswith('s') else conversion['unit']})")
-        
-        # Advanced manual multiplier
-        with st.expander("⚙️ Advanced: Manual multiplier"):
-            st.caption("Override with custom multiplier")
-            manual_multiplier = st.number_input(
-                "Multiplier",
-                min_value=0.1,
-                max_value=10.0,
-                value=float(multiplier),
-                step=0.1,
-                key="search_manual_mult",
-                label_visibility="collapsed"
-            )
-            if abs(manual_multiplier - multiplier) > 0.01:
-                multiplier = manual_multiplier
-                st.info(f"Using manual multiplier: {multiplier:.2f}×")
-        
-        st.divider()
-        
-        # Product name display
-        st.markdown(f"### {selected.get('brand', 'Generic')} {selected['name']}")
-        
-        # Calculate adjusted nutrition
-        nutrition = selected['nutrition']
-        adjusted = {
-            'calories': nutrition.get('calories', 0) * multiplier,
-            'protein': nutrition.get('protein', 0) * multiplier,
-            'carbs': nutrition.get('carbs', 0) * multiplier,
-            'fat': nutrition.get('fat', 0) * multiplier
-        }
-        
-        # Big calorie display
-        st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            padding: 2rem;
-            border-radius: 15px;
-            text-align: center;
-            margin: 1rem 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        ">
-            <div style="color: white; font-size: 1rem; opacity: 0.9; font-weight: 600;">CALORIES</div>
-            <div style="color: white; font-size: 4rem; font-weight: bold; margin: 0.5rem 0;">{int(adjusted['calories'])}</div>
-            <div style="color: white; font-size: 0.9rem; opacity: 0.8;">kcal</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Macronutrients in columns
-        st.markdown("**Macronutrients:**")
-        col_a, col_b, col_c = st.columns(3)
-        
-        with col_a:
-            st.metric("💪 Protein", f"{adjusted['protein']:.1f}g", 
-                     help="Essential for muscle growth and repair")
-        
-        with col_b:
-            st.metric("🍞 Carbs", f"{adjusted['carbs']:.1f}g",
-                     help="Primary energy source")
-        
-        with col_c:
-            st.metric("🥑 Fat", f"{adjusted['fat']:.1f}g",
-                     help="Essential for hormone production")
-        
-        st.divider()
-        st.caption("⚠️ Values are estimates from USDA FoodData Central and may vary.")
-        
-        # Save button
-        st.markdown("### 💾 Save This Meal")
-        
-        col_meal_select, col_save = st.columns([2, 1])
-        
-        with col_meal_select:
-            meal_type = st.selectbox(
-                "Meal type",
-                ["🌅 Breakfast", "🌞 Lunch", "🌆 Dinner", "🍿 Snack"],
-                key="search_meal_type",
-                label_visibility="collapsed"
-            )
-        
-        with col_save:
-            if st.button("💾 Save to Log", type="primary", use_container_width=True, key="search_save"):
-                # Create meal entry
-                meal = {
-                    'id': f"{datetime.now().timestamp()}",
-                    'date': str(date.today()),
-                    'time': datetime.now().strftime("%H:%M"),
-                    'food_name': selected['name'],
-                    'meal_type': meal_type,
-                    'portion_size': f"{portion_amount} {conversion['unit']}",
-                    'multiplier': multiplier,
-                    'nutrition': adjusted,
-                    'source': 'USDA Search',
-                    'has_image': False
-                }
-                
-                # Save to meals
-                meals = app.load_json(app.MEALS_FILE, default={})
-                today = str(date.today())
-                
-                if today not in meals:
-                    meals[today] = {}
-                if meal_type not in meals[today]:
-                    meals[today][meal_type] = []
-                
-                meals[today][meal_type].append(meal)
-                app.save_json(app.MEALS_FILE, meals)
-                
-                st.success(f"✅ Meal saved to your {meal_type} log!")
-                st.balloons()
-                
-                # Clear selection and portion state
-                st.session_state['selected_food'] = None
+            col_n1, col_n2 = st.columns(2)
+            with col_n1:
+                st.caption(f"🔥 {nutrition.get('calories', 0):.0f} cal")
+                st.caption(f"💪 {nutrition.get('protein', 0):.1f}g protein")
+            with col_n2:
+                st.caption(f"🍞 {nutrition.get('carbs', 0):.1f}g carbs")
+                st.caption(f"🥑 {nutrition.get('fat', 0):.1f}g fat")
+            
+            # Button to go back to search
+            st.markdown("---")
+            if st.button("🔄 Search Again", use_container_width=True, type="secondary"):
+                del st.session_state['selected_food']
                 if 'search_portion_value' in st.session_state:
                     del st.session_state['search_portion_value']
                 st.rerun()
+        
+        with col2:
+            st.subheader("Nutrition Analysis")
+            
+            selected = st.session_state['selected_food']
+            category = app.detect_food_category(selected['name'])
+            
+            # Show category info
+            if category != 'other':
+                st.info(f"✨ Smart serving detected: {category}")
+            
+            st.markdown("---")
+            
+            # Portion adjustment section - MATCHES OTHER MODES
+            st.markdown("### 🍴 Adjust Your Portion Size")
+            
+            # Detect category for smart defaults
+            conversion = app.get_serving_conversion(category)
+            
+            # Get defaults based on category (matches other modes)
+            if category in ['cookies', 'bread']:
+                default_amount, max_amount, step = 3, 20, 1
+            elif category in ['pizza', 'fruit', 'salad']:
+                default_amount, max_amount, step = 2, 8, 1
+            elif category in ['burger', 'candy']:
+                default_amount, max_amount, step = 1, 5, 1
+            elif category in ['meat']:
+                default_amount, max_amount, step = 100, 500, 25
+            elif category in ['beverage']:
+                default_amount, max_amount, step = 250, 2000, 50
+            elif category in ['rice', 'pasta', 'soup', 'vegetables']:
+                default_amount, max_amount, step = 1.0, 5.0, 0.5
+            elif category in ['fries', 'snacks']:
+                default_amount, max_amount, step = 1.0, 5.0, 0.5
+            else:
+                default_amount, max_amount, step = 2.0, 5.0, 0.5
+            
+            # Initialize portion amount in session state
+            if 'search_portion_value' not in st.session_state:
+                st.session_state['search_portion_value'] = default_amount
+            
+            # Type-safe number input (matches barcode mode)
+            if isinstance(step, int):
+                portion_amount = st.number_input(
+                    conversion['label'],
+                    min_value=int(step),
+                    max_value=int(max_amount),
+                    value=int(st.session_state['search_portion_value']),
+                    step=int(step),
+                    key="search_portion",
+                    help=f"Enter the amount in {conversion['unit']}"
+                )
+            else:
+                portion_amount = st.number_input(
+                    conversion['label'],
+                    min_value=float(step),
+                    max_value=float(max_amount),
+                    value=float(st.session_state['search_portion_value']),
+                    step=float(step),
+                    key="search_portion",
+                    help=f"Enter the amount in {conversion['unit']}"
+                )
+            
+            # Calculate multiplier
+            multiplier = app.calculate_multiplier(category, portion_amount)
+            
+            # Show calculation (matches other modes)
+            total_grams = int(multiplier * 100)
+            st.caption(f"≈ {total_grams}g total")
+            
+            # Advanced manual multiplier (matches other modes)
+            with st.expander("⚙️ Advanced: Manual multiplier"):
+                manual_multiplier = st.number_input(
+                    "Override with custom multiplier",
+                    min_value=0.1,
+                    max_value=10.0,
+                    value=float(multiplier),
+                    step=0.1,
+                    help="Manually override the calculated multiplier if needed",
+                    key="search_manual_mult"
+                )
+                if st.checkbox("Use manual multiplier", key="search_use_manual"):
+                    multiplier = manual_multiplier
+                    st.info(f"Using manual multiplier: {multiplier:.2f}×")
+            
+            st.markdown("---")
+            
+            # Display adjusted nutrition - BIG CALORIE DISPLAY (matches other modes)
+            st.markdown("### 📊 Nutritional Facts")
+            st.markdown("**For your selected portion:**")
+            st.markdown("")
+            
+            nutrition = selected['nutrition']
+            adjusted = {
+                'calories': nutrition.get('calories', 0) * multiplier,
+                'protein': nutrition.get('protein', 0) * multiplier,
+                'carbs': nutrition.get('carbs', 0) * multiplier,
+                'fat': nutrition.get('fat', 0) * multiplier
+            }
+            
+            # Highlight calories in larger display (matches barcode mode)
+            st.markdown(f"""
+            <div style="text-align: center; padding: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        border-radius: 15px; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                <h1 style="color: white; margin: 0; font-size: 3rem;">{int(adjusted['calories'])}</h1>
+                <p style="color: white; margin: 0; font-size: 1.2rem; opacity: 0.9;">Calories (kcal)</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Macronutrients in columns (matches other modes)
+            st.markdown("**Macronutrients:**")
+            col_a, col_b, col_c = st.columns(3)
+            
+            with col_a:
+                st.metric("💪 Protein", f"{adjusted['protein']:.1f}g", 
+                         help="Essential for muscle growth and repair")
+            
+            with col_b:
+                st.metric("🍞 Carbs", f"{adjusted['carbs']:.1f}g",
+                         help="Primary energy source")
+            
+            with col_c:
+                st.metric("🥑 Fat", f"{adjusted['fat']:.1f}g",
+                         help="Essential for hormone production")
+            
+            st.markdown("---")
+            st.caption("⚠️ Values are estimates from USDA FoodData Central and may vary.")
+            
+            # Save meal section (matches other modes)
+            st.markdown("### 💾 Save This Meal")
+            
+            col_meal_select, col_save = st.columns([2, 1])
+            
+            with col_meal_select:
+                meal_type = st.selectbox(
+                    "Meal type",
+                    ["🌅 Breakfast", "🌞 Lunch", "🌆 Dinner", "🍿 Snack"],
+                    key="search_meal_type",
+                    label_visibility="collapsed"
+                )
+            
+            with col_save:
+                if st.button("💾 Save to Log", type="primary", use_container_width=True, key="search_save"):
+                    # Create meal entry
+                    meal_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    portion_text = f"{portion_amount} {conversion['unit']}"
+                    
+                    meal_data = {
+                        'id': meal_id,
+                        'food_name': selected['name'],
+                        'meal_type': meal_type,
+                        'nutrition': {
+                            'calories': nutrition.get('calories', 0),
+                            'protein': nutrition.get('protein', 0),
+                            'carbs': nutrition.get('carbs', 0),
+                            'fat': nutrition.get('fat', 0),
+                            'fiber': 0,
+                            'sugar': 0
+                        },
+                        'multiplier': multiplier,
+                        'portion_text': portion_text,
+                        'confidence': 'High',
+                        'source': 'USDA Search'
+                    }
+                    
+                    app.save_meal(meal_data)
+                    st.success(f"✅ Meal saved to your {meal_type} log!")
+                    st.balloons()
+                    
+                    # Clear selection and portion state
+                    del st.session_state['selected_food']
+                    if 'search_portion_value' in st.session_state:
+                        del st.session_state['search_portion_value']
+                    st.rerun()
+    
+    else:
+        # SEARCH INTERFACE - TWO COLUMN LAYOUT
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            st.subheader("Search Database")
+            
+            # Visual search icon
+            st.markdown("""
+            <div style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 4rem;
+                border-radius: 15px;
+                text-align: center;
+                font-size: 6rem;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                margin-bottom: 1rem;
+            ">
+                🔍
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("**USDA FoodData Central**")
+            st.caption("500,000+ foods in database")
+            st.caption("Search by name, brand, or category")
+            
+            st.markdown("---")
+            st.caption("**Example searches:**")
+            st.caption("• Chicken breast")
+            st.caption("• McDonalds Big Mac")
+            st.caption("• Apple")
+            st.caption("• White rice")
+        
+        with col2:
+            st.subheader("Search Results")
+            
+            # Search input
+            search_query = st.text_input(
+                "Type a food name to search",
+                placeholder="e.g., chicken breast, apple, pizza, rice...",
+                help="Start typing to search USDA FoodData Central",
+                key="search_input"
+            )
+            
+            if search_query and len(search_query) >= 2:
+                # Show loading state
+                with st.spinner("Searching USDA database..."):
+                    # Search USDA database
+                    results = search_usda_foods(search_query, app.USDA_API_KEY)
+                    
+                    if results:
+                        st.success(f"✅ Found {len(results)} matching foods")
+                        
+                        # Display results as expandable cards
+                        for idx, food in enumerate(results):
+                            with st.expander(f"🍴 {food['name'][:50]}{'...' if len(food['name']) > 50 else ''}", expanded=(idx == 0)):
+                                col1, col2 = st.columns([2, 1])
+                                
+                                with col1:
+                                    st.caption(f"**Brand:** {food.get('brand', 'Generic')}")
+                                    st.caption(f"**Source:** {food.get('dataType', 'USDA')}")
+                                
+                                with col2:
+                                    if st.button("✅ Select", key=f"select_{idx}", type="primary", use_container_width=True):
+                                        st.session_state['selected_food'] = food
+                                        st.rerun()
+                                
+                                # Nutrition info (per 100g)
+                                if food.get('nutrition'):
+                                    st.markdown("**Nutrition (per 100g):**")
+                                    
+                                    nutrients = food['nutrition']
+                                    col1, col2, col3, col4 = st.columns(4)
+                                    
+                                    with col1:
+                                        st.metric("🔥", f"{nutrients.get('calories', 0):.0f}")
+                                    with col2:
+                                        st.metric("💪", f"{nutrients.get('protein', 0):.1f}g")
+                                    with col3:
+                                        st.metric("🍞", f"{nutrients.get('carbs', 0):.1f}g")
+                                    with col4:
+                                        st.metric("🥑", f"{nutrients.get('fat', 0):.1f}g")
+                    else:
+                        st.info("💡 No results found. Try a different search term.")
+            elif search_query:
+                st.info("👆 Type at least 2 characters to search")
+            else:
+                st.info("👆 Enter a food name above to start searching")
 
 
 def search_usda_foods(query, api_key, max_results=10):
