@@ -1041,10 +1041,16 @@ def render_search_mode(app):
         st.divider()
         selected = st.session_state['selected_food']
         
-        # Display selected food with image placeholder
+        # Header
+        st.markdown("### ✏️ Selected Product")
+        st.markdown(f"**{selected.get('brand', 'Generic')}** - {selected['name']}")
+        
+        # Product display section
         col_img, col_info = st.columns([1, 2])
         
         with col_img:
+            st.markdown("**Product Photo**")
+            
             # Show a food emoji based on category
             category = app.detect_food_category(selected['name'])
             emoji_map = {
@@ -1069,73 +1075,127 @@ def render_search_mode(app):
             """, unsafe_allow_html=True)
         
         with col_info:
-            st.markdown(f"### {selected['name']}")
-            st.caption(f"**Brand:** {selected.get('brand', 'Generic')} | **Source:** {selected.get('dataType', 'USDA')}")
+            # Show nutrition per 100g
+            st.markdown("**Nutrition Facts (per 100g)**")
+            nutrition = selected['nutrition']
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("🔥 Cal", f"{nutrition.get('calories', 0):.0f}")
+            with col2:
+                st.metric("💪 Pro", f"{nutrition.get('protein', 0):.1f}g")
+            with col3:
+                st.metric("🍞 Carbs", f"{nutrition.get('carbs', 0):.1f}g")
+            with col4:
+                st.metric("🥑 Fat", f"{nutrition.get('fat', 0):.1f}g")
         
         st.divider()
         
-        # Portion input section
+        # Portion adjustment section
         st.markdown("### 🍴 Adjust Your Portion Size")
         
         # Detect category for smart defaults
-        category = app.detect_food_category(selected['name'])
         conversion = app.get_serving_conversion(category)
         
-        # Show helpful category info
+        # Show category info
         if category != 'other':
-            st.caption(f"✨ **{category.title()}** detected - Using smart portion sizes")
+            st.caption(f"✨ Smart serving detected: {selected['name']} ({category})")
         
-        col1, col2 = st.columns(2)
+        # Main portion input
+        st.markdown(f"**{conversion['label']}**")
         
-        with col1:
-            # Get defaults based on category
-            if category in ['cookies', 'bread']:
-                default_amount, max_amount, step = 3, 20, 1
-            elif category in ['pizza', 'fruit', 'salad']:
-                default_amount, max_amount, step = 2, 8, 1
-            elif category in ['burger', 'candy']:
-                default_amount, max_amount, step = 1, 5, 1
-            elif category in ['meat']:
-                default_amount, max_amount, step = 100, 500, 25
-            elif category in ['beverage']:
-                default_amount, max_amount, step = 250, 2000, 50
-            elif category in ['rice', 'pasta', 'soup', 'vegetables']:
-                default_amount, max_amount, step = 1.0, 5.0, 0.5
-            elif category in ['fries', 'snacks']:
-                default_amount, max_amount, step = 1.0, 5.0, 0.5
-            else:
-                default_amount, max_amount, step = 2.0, 5.0, 0.5
-            
-            # Type-safe number input
-            if isinstance(step, int):
-                portion_amount = st.number_input(
-                    conversion['label'],
-                    min_value=int(step),
-                    max_value=int(max_amount),
-                    value=int(default_amount),
-                    step=int(step),
-                    key="search_portion"
-                )
-            else:
-                portion_amount = st.number_input(
-                    conversion['label'],
-                    min_value=float(step),
-                    max_value=float(max_amount),
-                    value=float(default_amount),
-                    step=float(step),
-                    key="search_portion"
-                )
+        # Get defaults based on category
+        if category in ['cookies', 'bread']:
+            default_amount, max_amount, step = 3, 20, 1
+            quick_sizes = [1, 2, 3, 5, 10]
+        elif category in ['pizza', 'fruit', 'salad']:
+            default_amount, max_amount, step = 2, 8, 1
+            quick_sizes = [1, 2, 3, 4]
+        elif category in ['burger', 'candy']:
+            default_amount, max_amount, step = 1, 5, 1
+            quick_sizes = [1, 2, 3]
+        elif category in ['meat']:
+            default_amount, max_amount, step = 100, 500, 25
+            quick_sizes = [100, 150, 200, 300]
+        elif category in ['beverage']:
+            default_amount, max_amount, step = 250, 2000, 50
+            quick_sizes = [250, 330, 500, 750, 1000]
+        elif category in ['rice', 'pasta', 'soup', 'vegetables']:
+            default_amount, max_amount, step = 1.0, 5.0, 0.5
+            quick_sizes = [0.5, 1, 1.5, 2, 3]
+        elif category in ['fries', 'snacks']:
+            default_amount, max_amount, step = 1.0, 5.0, 0.5
+            quick_sizes = [0.5, 1, 1.5, 2]
+        else:
+            default_amount, max_amount, step = 2.0, 5.0, 0.5
+            quick_sizes = [1, 2, 3, 4]
         
-        with col2:
-            meal_type = st.selectbox(
-                "Meal Type",
-                ["🌅 Breakfast", "🌞 Lunch", "🌆 Dinner", "🍿 Snack"],
-                index=0,
-                key="search_meal_type"
+        # Initialize portion amount in session state
+        if 'search_portion_value' not in st.session_state:
+            st.session_state['search_portion_value'] = default_amount
+        
+        # Type-safe number input
+        if isinstance(step, int):
+            portion_amount = st.number_input(
+                f"{conversion['label']}",
+                min_value=int(step),
+                max_value=int(max_amount),
+                value=int(st.session_state['search_portion_value']),
+                step=int(step),
+                key="search_portion",
+                label_visibility="collapsed"
             )
+        else:
+            portion_amount = st.number_input(
+                f"{conversion['label']}",
+                min_value=float(step),
+                max_value=float(max_amount),
+                value=float(st.session_state['search_portion_value']),
+                step=float(step),
+                key="search_portion",
+                label_visibility="collapsed"
+            )
+        
+        # Quick size buttons
+        st.markdown("**Quick sizes:**")
+        quick_cols = st.columns(len(quick_sizes))
+        for idx, size in enumerate(quick_sizes):
+            with quick_cols[idx]:
+                if isinstance(size, float):
+                    btn_label = f"{size:.1f}"
+                else:
+                    btn_label = str(size)
+                if st.button(btn_label, key=f"quick_{idx}", use_container_width=True):
+                    st.session_state['search_portion_value'] = size
+                    st.rerun()
         
         # Calculate multiplier using the app's function
         multiplier = app.calculate_multiplier(category, portion_amount)
+        
+        # Show calculation
+        total_grams = int(multiplier * 100)
+        st.caption(f"≈ {total_grams}g total ({portion_amount} {conversion['unit']} × {conversion['grams_per_unit']}g per {conversion['unit'][:-1] if conversion['unit'].endswith('s') else conversion['unit']})")
+        
+        # Advanced manual multiplier
+        with st.expander("⚙️ Advanced: Manual multiplier"):
+            st.caption("Override with custom multiplier")
+            manual_multiplier = st.number_input(
+                "Multiplier",
+                min_value=0.1,
+                max_value=10.0,
+                value=float(multiplier),
+                step=0.1,
+                key="search_manual_mult",
+                label_visibility="collapsed"
+            )
+            if abs(manual_multiplier - multiplier) > 0.01:
+                multiplier = manual_multiplier
+                st.info(f"Using manual multiplier: {multiplier:.2f}×")
+        
+        st.divider()
+        
+        # Product name display
+        st.markdown(f"### {selected.get('brand', 'Generic')} {selected['name']}")
         
         # Calculate adjusted nutrition
         nutrition = selected['nutrition']
@@ -1145,10 +1205,6 @@ def render_search_mode(app):
             'carbs': nutrition.get('carbs', 0) * multiplier,
             'fat': nutrition.get('fat', 0) * multiplier
         }
-        
-        # Show adjusted nutrition in styled card
-        st.markdown(f"### 📊 Your Portion")
-        st.caption(f"{portion_amount} {conversion['unit']} = ~{int(multiplier * 100)}g")
         
         # Big calorie display
         st.markdown(f"""
@@ -1187,9 +1243,18 @@ def render_search_mode(app):
         
         # Save button
         st.markdown("### 💾 Save This Meal")
-        col_save1, col_save2 = st.columns([2, 1])
         
-        with col_save2:
+        col_meal_select, col_save = st.columns([2, 1])
+        
+        with col_meal_select:
+            meal_type = st.selectbox(
+                "Meal type",
+                ["🌅 Breakfast", "🌞 Lunch", "🌆 Dinner", "🍿 Snack"],
+                key="search_meal_type",
+                label_visibility="collapsed"
+            )
+        
+        with col_save:
             if st.button("💾 Save to Log", type="primary", use_container_width=True, key="search_save"):
                 # Create meal entry
                 meal = {
@@ -1220,8 +1285,10 @@ def render_search_mode(app):
                 st.success(f"✅ Meal saved to your {meal_type} log!")
                 st.balloons()
                 
-                # Clear selection
+                # Clear selection and portion state
                 st.session_state['selected_food'] = None
+                if 'search_portion_value' in st.session_state:
+                    del st.session_state['search_portion_value']
                 st.rerun()
 
 
