@@ -244,6 +244,24 @@ def render_exercise_logger(app, user_weight):
 
     exercise_data = exercises_in_category[exercise_name]
 
+    # ─── Strength training exercise guide ───
+    if category == "🏋️ Strength Training":
+        strength_descriptions = {
+            "Weight Lifting (light)": "🔹 **Light** — Low weight, high reps (12-20+). Think: bicep curls with light dumbbells, lateral raises, tricep kickbacks. Mostly isolation exercises with controlled movements. Suitable for warm-ups, beginners, or rehab.",
+            "Weight Lifting (moderate)": "🔸 **Moderate** — Medium weight, moderate reps (8-12). Think: bench press, lat pulldown, seated rows, leg extensions at a challenging but manageable weight. The standard hypertrophy (muscle-building) range for most lifters.",
+            "Weight Lifting (vigorous)": "🔴 **Vigorous** — Heavy weight, low reps (1-6). Think: heavy squats, deadlifts, bench press near your max. High intensity compound lifts that require full effort and longer rest periods (2-5 min). Strength/power training.",
+            "Bodyweight Exercises": "💪 Using your own body weight — push-ups, pull-ups, dips, bodyweight squats, lunges. No equipment needed.",
+            "Circuit Training": "🔄 Moving quickly between different exercises with minimal rest. Combines strength and cardio for high calorie burn.",
+            "CrossFit": "🏋️ High-intensity functional movements — Olympic lifts, gymnastics, metabolic conditioning, typically in a WOD (Workout of the Day) format.",
+            "Resistance Bands": "🔗 Using elastic bands for resistance — great for warm-ups, rehab, and adding variable resistance to movements.",
+            "Kettlebell Training": "🏋️ Swings, cleans, snatches, goblet squats — combines strength and cardio with dynamic, full-body movements.",
+            "Push-ups / Pull-ups": "💪 Classic upper body bodyweight exercises — variations include wide grip, close grip, diamond push-ups, chin-ups.",
+            "Deadlifts / Squats (heavy)": "🏋️ The two biggest compound lifts — heavy barbell work that engages the entire posterior chain (deadlift) or quads/glutes (squat). High MET due to large muscle groups involved.",
+        }
+        desc = strength_descriptions.get(exercise_name)
+        if desc:
+            st.caption(desc)
+
     # ─── Mode detection ───
     is_strength = category in DETAILED_MODE_CATEGORIES
     use_detailed = False
