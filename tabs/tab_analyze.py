@@ -181,12 +181,16 @@ def render(app):
                                 if 'bc_quick_amount' not in st.session_state:
                                     st.session_state['bc_quick_amount'] = None
                                 
+                                # Sync quick size to widget key so number_input picks it up
+                                if st.session_state['bc_quick_amount'] is not None:
+                                    st.session_state['bc_serving_amount'] = st.session_state['bc_quick_amount']
+                                
                                 if isinstance(step, int):
                                     serving_amount = st.number_input(
                                         conversion['label'],
                                         min_value=int(step),
                                         max_value=int(max_amount),
-                                        value=int(st.session_state['bc_quick_amount']) if st.session_state['bc_quick_amount'] is not None and isinstance(step, int) else int(default_amount),
+                                        value=int(default_amount),
                                         step=int(step),
                                         help=f"Enter the amount in {conversion['unit']}",
                                         key="bc_serving_amount"
@@ -196,7 +200,7 @@ def render(app):
                                         conversion['label'],
                                         min_value=float(step),
                                         max_value=float(max_amount),
-                                        value=float(st.session_state['bc_quick_amount']) if st.session_state['bc_quick_amount'] is not None else float(default_amount),
+                                        value=float(default_amount),
                                         step=float(step),
                                         help=f"Enter the amount in {conversion['unit']}",
                                         key="bc_serving_amount"
@@ -860,12 +864,16 @@ Nutritional Facts:
                             if quick_key not in st.session_state:
                                 st.session_state[quick_key] = None
                             
+                            # Sync quick size to widget key so number_input picks it up
+                            if st.session_state[quick_key] is not None:
+                                st.session_state[f'amt_{food_key}'] = st.session_state[quick_key]
+                            
                             if isinstance(step, int):
                                 serving_amount = st.number_input(
                                     conversion['label'],
                                     min_value=int(step),
                                     max_value=int(max_amount),
-                                    value=int(st.session_state[quick_key]) if st.session_state[quick_key] is not None and isinstance(step, int) else int(default_amount),
+                                    value=int(default_amount),
                                     step=int(step),
                                     key=f"amt_{food_key}"
                                 )
@@ -874,7 +882,7 @@ Nutritional Facts:
                                     conversion['label'],
                                     min_value=float(step),
                                     max_value=float(max_amount),
-                                    value=float(st.session_state[quick_key]) if st.session_state[quick_key] is not None else float(default_amount),
+                                    value=float(default_amount),
                                     step=float(step),
                                     key=f"amt_{food_key}"
                                 )
@@ -1470,13 +1478,18 @@ def render_search_mode(app):
             if 'search_portion_value' not in st.session_state:
                 st.session_state['search_portion_value'] = default_amount
             
+            # Sync quick size to widget key so number_input picks it up
+            if st.session_state.get('_search_quick_pending'):
+                st.session_state['search_portion'] = st.session_state['search_portion_value']
+                st.session_state['_search_quick_pending'] = False
+            
             # Type-safe number input (matches barcode mode)
             if isinstance(step, int):
                 portion_amount = st.number_input(
                     conversion['label'],
                     min_value=int(step),
                     max_value=int(max_amount),
-                    value=int(st.session_state['search_portion_value']),
+                    value=int(default_amount),
                     step=int(step),
                     key="search_portion",
                     help=f"Enter the amount in {conversion['unit']}"
@@ -1486,7 +1499,7 @@ def render_search_mode(app):
                     conversion['label'],
                     min_value=float(step),
                     max_value=float(max_amount),
-                    value=float(st.session_state['search_portion_value']),
+                    value=float(default_amount),
                     step=float(step),
                     key="search_portion",
                     help=f"Enter the amount in {conversion['unit']}"
@@ -1499,190 +1512,232 @@ def render_search_mode(app):
                 with qc1:
                     if st.button("🧃 Small\n250ml", use_container_width=True, key="sq_small"):
                         st.session_state['search_portion_value'] = 250
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("🥤 Can\n355ml", use_container_width=True, key="sq_can"):
                         st.session_state['search_portion_value'] = 355
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("🥤 Medium\n500ml", use_container_width=True, key="sq_med"):
                         st.session_state['search_portion_value'] = 500
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("🥤 Large\n750ml", use_container_width=True, key="sq_large"):
                         st.session_state['search_portion_value'] = 750
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['cookies', 'bread']:
                 qc1, qc2, qc3, qc4 = st.columns(4)
                 with qc1:
                     if st.button("1 pc", use_container_width=True, key="sq_1"):
                         st.session_state['search_portion_value'] = 1
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("2 pcs", use_container_width=True, key="sq_2"):
                         st.session_state['search_portion_value'] = 2
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("3 pcs", use_container_width=True, key="sq_3"):
                         st.session_state['search_portion_value'] = 3
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("5 pcs", use_container_width=True, key="sq_5"):
                         st.session_state['search_portion_value'] = 5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['pizza']:
                 qc1, qc2, qc3, qc4 = st.columns(4)
                 with qc1:
                     if st.button("🍕 1 slice", use_container_width=True, key="sq_1s"):
                         st.session_state['search_portion_value'] = 1
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("🍕 2 slices", use_container_width=True, key="sq_2s"):
                         st.session_state['search_portion_value'] = 2
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("🍕 3 slices", use_container_width=True, key="sq_3s"):
                         st.session_state['search_portion_value'] = 3
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("🍕 4 slices", use_container_width=True, key="sq_4s"):
                         st.session_state['search_portion_value'] = 4
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['burger']:
                 qc1, qc2, qc3 = st.columns(3)
                 with qc1:
                     if st.button("🍔 1 burger", use_container_width=True, key="sq_1b"):
                         st.session_state['search_portion_value'] = 1
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("🍔 2 burgers", use_container_width=True, key="sq_2b"):
                         st.session_state['search_portion_value'] = 2
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("🍔 3 burgers", use_container_width=True, key="sq_3b"):
                         st.session_state['search_portion_value'] = 3
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['candy']:
                 qc1, qc2, qc3, qc4 = st.columns(4)
                 with qc1:
                     if st.button("🍬 1 pc", use_container_width=True, key="sq_1c"):
                         st.session_state['search_portion_value'] = 1
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("🍬 2 pcs", use_container_width=True, key="sq_2c"):
                         st.session_state['search_portion_value'] = 2
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("🍬 3 pcs", use_container_width=True, key="sq_3c"):
                         st.session_state['search_portion_value'] = 3
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("🍬 5 pcs", use_container_width=True, key="sq_5c"):
                         st.session_state['search_portion_value'] = 5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['meat']:
                 qc1, qc2, qc3, qc4 = st.columns(4)
                 with qc1:
                     if st.button("🥩 Small\n100g", use_container_width=True, key="sq_100"):
                         st.session_state['search_portion_value'] = 100
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("🥩 Medium\n150g", use_container_width=True, key="sq_150"):
                         st.session_state['search_portion_value'] = 150
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("🥩 Large\n200g", use_container_width=True, key="sq_200"):
                         st.session_state['search_portion_value'] = 200
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("🥩 XL\n300g", use_container_width=True, key="sq_300"):
                         st.session_state['search_portion_value'] = 300
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['fruit', 'salad']:
                 qc1, qc2, qc3, qc4 = st.columns(4)
                 with qc1:
                     if st.button("1 serving", use_container_width=True, key="sq_1f"):
                         st.session_state['search_portion_value'] = 1
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("2 servings", use_container_width=True, key="sq_2f"):
                         st.session_state['search_portion_value'] = 2
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("3 servings", use_container_width=True, key="sq_3f"):
                         st.session_state['search_portion_value'] = 3
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("4 servings", use_container_width=True, key="sq_4f"):
                         st.session_state['search_portion_value'] = 4
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['rice', 'pasta']:
                 qc1, qc2, qc3, qc4 = st.columns(4)
                 with qc1:
                     if st.button("½ cup", use_container_width=True, key="sq_half"):
                         st.session_state['search_portion_value'] = 0.5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("1 cup", use_container_width=True, key="sq_1cup"):
                         st.session_state['search_portion_value'] = 1.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("1½ cups", use_container_width=True, key="sq_15cup"):
                         st.session_state['search_portion_value'] = 1.5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("2 cups", use_container_width=True, key="sq_2cup"):
                         st.session_state['search_portion_value'] = 2.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['soup']:
                 qc1, qc2, qc3 = st.columns(3)
                 with qc1:
                     if st.button("🍲 Small\n1 cup", use_container_width=True, key="sq_1soup"):
                         st.session_state['search_portion_value'] = 1.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("🍲 Medium\n1.5 cups", use_container_width=True, key="sq_15soup"):
                         st.session_state['search_portion_value'] = 1.5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("🍲 Large\n2 cups", use_container_width=True, key="sq_2soup"):
                         st.session_state['search_portion_value'] = 2.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['vegetables']:
                 qc1, qc2, qc3, qc4 = st.columns(4)
                 with qc1:
                     if st.button("🥦 ½ cup", use_container_width=True, key="sq_halfv"):
                         st.session_state['search_portion_value'] = 0.5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("🥦 1 cup", use_container_width=True, key="sq_1v"):
                         st.session_state['search_portion_value'] = 1.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("🥦 1½ cups", use_container_width=True, key="sq_15v"):
                         st.session_state['search_portion_value'] = 1.5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("🥦 2 cups", use_container_width=True, key="sq_2v"):
                         st.session_state['search_portion_value'] = 2.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             elif category in ['fries', 'snacks']:
                 qc1, qc2, qc3, qc4 = st.columns(4)
                 with qc1:
                     if st.button("Small\n0.5x", use_container_width=True, key="sq_halfs"):
                         st.session_state['search_portion_value'] = 0.5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("Medium\n1x", use_container_width=True, key="sq_1s"):
                         st.session_state['search_portion_value'] = 1.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("Large\n1.5x", use_container_width=True, key="sq_15s"):
                         st.session_state['search_portion_value'] = 1.5
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("XL\n2x", use_container_width=True, key="sq_2s"):
                         st.session_state['search_portion_value'] = 2.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             else:
                 # Generic: Small / Medium / Large / XL
@@ -1690,18 +1745,22 @@ def render_search_mode(app):
                 with qc1:
                     if st.button("Small\n100g", use_container_width=True, key="sq_sg"):
                         st.session_state['search_portion_value'] = 1.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc2:
                     if st.button("Medium\n200g", use_container_width=True, key="sq_mg"):
                         st.session_state['search_portion_value'] = 2.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc3:
                     if st.button("Large\n300g", use_container_width=True, key="sq_lg"):
                         st.session_state['search_portion_value'] = 3.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
                 with qc4:
                     if st.button("XL\n500g", use_container_width=True, key="sq_xlg"):
                         st.session_state['search_portion_value'] = 5.0
+                        st.session_state['_search_quick_pending'] = True
                         st.rerun()
             
             # Calculate multiplier
