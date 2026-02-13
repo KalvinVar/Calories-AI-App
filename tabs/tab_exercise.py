@@ -207,7 +207,7 @@ def render(app):
                 max_value=660.0,
                 value=float(default_lbs),
                 step=1.0,
-                key="exercise_weight",
+                key="exercise_weight_lbs",
                 help="Used for accurate calorie burn estimation"
             )
             user_weight = user_weight_input / 2.20462  # convert to kg for calculations
@@ -218,7 +218,7 @@ def render(app):
                 max_value=300.0,
                 value=float(latest_weight),
                 step=0.5,
-                key="exercise_weight",
+                key="exercise_weight_kg",
                 help="Used for accurate calorie burn estimation"
             )
     with col_info:
@@ -325,7 +325,7 @@ def render_exercise_logger(app, user_weight):
             if load_unit == "lbs":
                 load_lbs = st.number_input(
                     "Weight per rep (lbs)",
-                    min_value=0.0, max_value=1100.0, value=44.0, step=5.0,
+                    min_value=1.0, max_value=1100.0, value=44.0, step=5.0,
                     key="ex_load_lbs",
                     help="Total weight you're lifting per rep (include the bar if applicable)"
                 )
@@ -333,7 +333,7 @@ def render_exercise_logger(app, user_weight):
             else:
                 load_kg = st.number_input(
                     "Weight per rep (kg)",
-                    min_value=0.0, max_value=500.0, value=20.0, step=2.5,
+                    min_value=0.5, max_value=500.0, value=20.0, step=2.5,
                     key="ex_load_kg",
                     help="Total weight you're lifting per rep (include the bar if applicable)"
                 )
@@ -639,7 +639,7 @@ The same exercise burns very different amounts for different body weights:
 | Walking (4 km/h, MET 3.0) | 90 cal | 120 cal | 150 cal |
 | Running (10 km/h, MET 9.8) | 294 cal | 392 cal | 490 cal |
 | Cycling (20 km/h, MET 8.0) | 240 cal | 320 cal | 400 cal |
-| Weight Lifting (moderate, MET 5.0) | 150 cal | 200 cal | 250 cal |
+| Bench Press (MET 5.0) | 150 cal | 200 cal | 250 cal |
 
 This is why keeping your weight updated is important for accurate estimates.
 
@@ -665,8 +665,8 @@ This is why keeping your weight updated is important for accurate estimates.
 2. **📊 Use Detailed Mode for strength training** — The volume-based calculation accounts for
    the actual weight you're lifting, giving much more accurate results than simple MET.
 
-3. **🎯 Pick the right intensity level** — "Weight Lifting (light)" vs "(vigorous)" makes a
-   significant difference. Be honest about your effort level.
+3. **🎯 Pick the right exercise** — Different exercises have different MET values (e.g., Bicep Curls 3.5 vs
+   Deadlift 6.0). Choose the specific exercise that matches what you did.
 
 4. **🍽️ Don't eat back all exercise calories** — Exercise calorie estimates tend to be slightly
    high. A safe approach is to **eat back only 50–75%** of estimated exercise calories if you're
@@ -704,7 +704,7 @@ Knowing that your workout burned roughly 200–250 calories is far more valuable
     with col_save:
         if st.button("💾 Log Exercise", type="primary", use_container_width=True, key="ex_save"):
             exercise_entry = {
-                'id': datetime.now().strftime("%Y%m%d_%H%M%S"),
+                'id': datetime.now().strftime("%Y%m%d_%H%M%S_") + str(hash(exercise_name))[-4:],
                 'date': str(date.today()),
                 'time': datetime.now().strftime("%H:%M"),
                 'exercise': exercise_name,
@@ -873,9 +873,9 @@ def render_workout_planner(app, user_weight):
                 
                 workout_id = datetime.now().strftime("%Y%m%d_%H%M%S")
                 
-                for item in st.session_state['workout_plan']:
+                for idx, item in enumerate(st.session_state['workout_plan']):
                     exercise_entry = {
-                        'id': f"{workout_id}_{item['exercise'][:10]}",
+                        'id': f"{workout_id}_{idx}_{item['exercise'][:10]}",
                         'date': today,
                         'time': datetime.now().strftime("%H:%M"),
                         'exercise': item['exercise'],
