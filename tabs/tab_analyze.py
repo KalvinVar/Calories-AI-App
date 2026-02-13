@@ -1257,22 +1257,22 @@ def render_search_mode(app):
     
     with col2:
         st.subheader("Search Results")
-            
-            # Initialize search_query in session state if not exists
-            if 'search_query_text' not in st.session_state:
-                st.session_state['search_query_text'] = ""
-            
-            # Search input
-            search_query = st.text_input(
-                "Type a food name to search",
-                placeholder="e.g., chicken breast, apple, pizza, rice...",
-                help="Start typing to search USDA FoodData Central",
-                key="search_input",
-                value=st.session_state['search_query_text']
-            )
-            
-            # Update session state
-            st.session_state['search_query_text'] = search_query
+        
+        # Initialize search_query in session state if not exists
+        if 'search_query_text' not in st.session_state:
+            st.session_state['search_query_text'] = ""
+        
+        # Search input
+        search_query = st.text_input(
+            "Type a food name to search",
+            placeholder="e.g., chicken breast, apple, pizza, rice...",
+            help="Start typing to search USDA FoodData Central",
+            key="search_input",
+            value=st.session_state['search_query_text']
+        )
+        
+        # Update session state
+        st.session_state['search_query_text'] = search_query
         
         if search_query and len(search_query) >= 2:
             # Show loading state
@@ -1321,6 +1321,24 @@ def render_search_mode(app):
             st.info("👆 Type at least 2 characters to search")
         else:
             st.info("👆 Enter a food name above to start searching")
+
+
+def search_usda_foods(query, api_key, max_results=10):
+    """Search USDA FoodData Central and return formatted results"""
+    import requests
+    
+    try:
+        url = "https://api.nal.usda.gov/fdc/v1/foods/search"
+        params = {
+            "api_key": api_key,
+            "query": query,
+            "pageSize": max_results,
+            "dataType": ["Survey (FNDDS)", "Branded", "Foundation", "SR Legacy"]
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code != 200:
             print(f"[USDA Search] Error: {response.status_code}")
             return []
         
