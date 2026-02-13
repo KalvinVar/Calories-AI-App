@@ -177,47 +177,227 @@ def render(app):
                                     step = 0.5
                                 
                                 # Serving amount input
+                                # Initialize quick size state
+                                if 'bc_quick_amount' not in st.session_state:
+                                    st.session_state['bc_quick_amount'] = None
+                                
                                 if isinstance(step, int):
                                     serving_amount = st.number_input(
                                         conversion['label'],
                                         min_value=int(step),
                                         max_value=int(max_amount),
-                                        value=int(default_amount),
+                                        value=int(st.session_state['bc_quick_amount']) if st.session_state['bc_quick_amount'] is not None and isinstance(step, int) else int(default_amount),
                                         step=int(step),
                                         help=f"Enter the amount in {conversion['unit']}",
                                         key="bc_serving_amount"
                                     )
-                                    
-                                    # Add quick size buttons for beverages
-                                    if food_category == 'beverage':
-                                        st.caption("**Quick sizes:**")
-                                        bc_bev_col1, bc_bev_col2, bc_bev_col3, bc_bev_col4 = st.columns(4)
-                                        with bc_bev_col1:
-                                            if st.button("🥤 Can (355ml)", use_container_width=True, key="bc_can"):
-                                                st.session_state['bc_bev_amount'] = 355
-                                        with bc_bev_col2:
-                                            if st.button("🧃 Small (250ml)", use_container_width=True, key="bc_small"):
-                                                st.session_state['bc_bev_amount'] = 250
-                                        with bc_bev_col3:
-                                            if st.button("🥤 Medium (500ml)", use_container_width=True, key="bc_med"):
-                                                st.session_state['bc_bev_amount'] = 500
-                                        with bc_bev_col4:
-                                            if st.button("🥤 Large (750ml)", use_container_width=True, key="bc_large"):
-                                                st.session_state['bc_bev_amount'] = 750
-                                        
-                                        if 'bc_bev_amount' in st.session_state:
-                                            serving_amount = st.session_state['bc_bev_amount']
-                                            st.info(f"Selected: {serving_amount}ml")
                                 else:
                                     serving_amount = st.number_input(
                                         conversion['label'],
                                         min_value=float(step),
                                         max_value=float(max_amount),
-                                        value=float(default_amount),
+                                        value=float(st.session_state['bc_quick_amount']) if st.session_state['bc_quick_amount'] is not None else float(default_amount),
                                         step=float(step),
                                         help=f"Enter the amount in {conversion['unit']}",
                                         key="bc_serving_amount"
                                     )
+                                
+                                # Quick size buttons for all categories
+                                st.caption("**Quick sizes:**")
+                                if food_category == 'beverage':
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("🧃 Small\n250ml", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 250
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("🥤 Can\n355ml", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 355
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("🥤 Medium\n500ml", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 500
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("🥤 Large\n750ml", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 750
+                                            st.rerun()
+                                elif food_category in ['cookies', 'bread']:
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("1 pc", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 1
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("2 pcs", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 2
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("3 pcs", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 3
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("5 pcs", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 5
+                                            st.rerun()
+                                elif food_category == 'pizza':
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("🍕 1 slice", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 1
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("🍕 2 slices", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 2
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("🍕 3 slices", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 3
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("🍕 4 slices", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 4
+                                            st.rerun()
+                                elif food_category == 'burger':
+                                    qc1, qc2, qc3 = st.columns(3)
+                                    with qc1:
+                                        if st.button("🍔 1 burger", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 1
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("🍔 2 burgers", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 2
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("🍔 3 burgers", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 3
+                                            st.rerun()
+                                elif food_category == 'candy':
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("🍬 1 pc", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 1
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("🍬 2 pcs", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 2
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("🍬 3 pcs", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 3
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("🍬 5 pcs", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 5
+                                            st.rerun()
+                                elif food_category == 'meat':
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("🥩 Small\n100g", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 100
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("🥩 Medium\n150g", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 150
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("🥩 Large\n200g", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 200
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("🥩 XL\n300g", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 300
+                                            st.rerun()
+                                elif food_category in ['fruit', 'salad']:
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("1 serving", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 1
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("2 servings", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 2
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("3 servings", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 3
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("4 servings", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 4
+                                            st.rerun()
+                                elif food_category in ['rice', 'pasta']:
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("½ cup", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 0.5
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("1 cup", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 1.0
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("1½ cups", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 1.5
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("2 cups", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 2.0
+                                            st.rerun()
+                                elif food_category == 'soup':
+                                    qc1, qc2, qc3 = st.columns(3)
+                                    with qc1:
+                                        if st.button("🍲 Small\n1 cup", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 1.0
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("🍲 Medium\n1.5 cups", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 1.5
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("🍲 Large\n2 cups", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 2.0
+                                            st.rerun()
+                                elif food_category == 'vegetables':
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("🥦 ½ cup", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 0.5
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("🥦 1 cup", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 1.0
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("🥦 1½ cups", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 1.5
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("🥦 2 cups", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 2.0
+                                            st.rerun()
+                                elif food_category in ['fries', 'snacks']:
+                                    qc1, qc2, qc3, qc4 = st.columns(4)
+                                    with qc1:
+                                        if st.button("Small\n0.5x", use_container_width=True, key="bc_q1"):
+                                            st.session_state['bc_quick_amount'] = 0.5
+                                            st.rerun()
+                                    with qc2:
+                                        if st.button("Medium\n1x", use_container_width=True, key="bc_q2"):
+                                            st.session_state['bc_quick_amount'] = 1.0
+                                            st.rerun()
+                                    with qc3:
+                                        if st.button("Large\n1.5x", use_container_width=True, key="bc_q3"):
+                                            st.session_state['bc_quick_amount'] = 1.5
+                                            st.rerun()
+                                    with qc4:
+                                        if st.button("XL\n2x", use_container_width=True, key="bc_q4"):
+                                            st.session_state['bc_quick_amount'] = 2.0
+                                            st.rerun()
+                                
+                                # Apply quick size if selected
+                                if st.session_state.get('bc_quick_amount') is not None:
+                                    serving_amount = st.session_state['bc_quick_amount']
                                 
                                 # Calculate multiplier
                                 bc_portion_multiplier = app.calculate_multiplier(food_category, serving_amount)
@@ -675,12 +855,17 @@ Nutritional Facts:
                             # Unique key for each food item
                             food_key = food_item.replace(" ", "_")[:30] + str(hash(food_item))[:8]
                             
+                            # Initialize quick size state for this food
+                            quick_key = f'fp_quick_{food_key}'
+                            if quick_key not in st.session_state:
+                                st.session_state[quick_key] = None
+                            
                             if isinstance(step, int):
                                 serving_amount = st.number_input(
                                     conversion['label'],
                                     min_value=int(step),
                                     max_value=int(max_amount),
-                                    value=int(default_amount),
+                                    value=int(st.session_state[quick_key]) if st.session_state[quick_key] is not None and isinstance(step, int) else int(default_amount),
                                     step=int(step),
                                     key=f"amt_{food_key}"
                                 )
@@ -689,10 +874,207 @@ Nutritional Facts:
                                     conversion['label'],
                                     min_value=float(step),
                                     max_value=float(max_amount),
-                                    value=float(default_amount),
+                                    value=float(st.session_state[quick_key]) if st.session_state[quick_key] is not None else float(default_amount),
                                     step=float(step),
                                     key=f"amt_{food_key}"
                                 )
+                            
+                            # Quick size buttons for all categories
+                            st.caption("**Quick sizes:**")
+                            if food_category == 'beverage':
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("🧃 Small\n250ml", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 250
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("🥤 Can\n355ml", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 355
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("🥤 Medium\n500ml", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 500
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("🥤 Large\n750ml", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 750
+                                        st.rerun()
+                            elif food_category in ['cookies', 'bread']:
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("1 pc", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 1
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("2 pcs", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 2
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("3 pcs", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 3
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("5 pcs", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 5
+                                        st.rerun()
+                            elif food_category == 'pizza':
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("🍕 1 slice", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 1
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("🍕 2 slices", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 2
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("🍕 3 slices", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 3
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("🍕 4 slices", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 4
+                                        st.rerun()
+                            elif food_category == 'burger':
+                                qc1, qc2, qc3 = st.columns(3)
+                                with qc1:
+                                    if st.button("🍔 1 burger", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 1
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("🍔 2 burgers", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 2
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("🍔 3 burgers", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 3
+                                        st.rerun()
+                            elif food_category == 'candy':
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("🍬 1 pc", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 1
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("🍬 2 pcs", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 2
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("🍬 3 pcs", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 3
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("🍬 5 pcs", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 5
+                                        st.rerun()
+                            elif food_category == 'meat':
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("🥩 Small\n100g", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 100
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("🥩 Medium\n150g", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 150
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("🥩 Large\n200g", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 200
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("🥩 XL\n300g", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 300
+                                        st.rerun()
+                            elif food_category in ['fruit', 'salad']:
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("1 serving", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 1
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("2 servings", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 2
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("3 servings", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 3
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("4 servings", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 4
+                                        st.rerun()
+                            elif food_category in ['rice', 'pasta']:
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("½ cup", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 0.5
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("1 cup", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 1.0
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("1½ cups", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 1.5
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("2 cups", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 2.0
+                                        st.rerun()
+                            elif food_category == 'soup':
+                                qc1, qc2, qc3 = st.columns(3)
+                                with qc1:
+                                    if st.button("🍲 Small\n1 cup", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 1.0
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("🍲 Medium\n1.5 cups", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 1.5
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("🍲 Large\n2 cups", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 2.0
+                                        st.rerun()
+                            elif food_category == 'vegetables':
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("🥦 ½ cup", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 0.5
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("🥦 1 cup", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 1.0
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("🥦 1½ cups", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 1.5
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("🥦 2 cups", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 2.0
+                                        st.rerun()
+                            elif food_category in ['fries', 'snacks']:
+                                qc1, qc2, qc3, qc4 = st.columns(4)
+                                with qc1:
+                                    if st.button("Small\n0.5x", use_container_width=True, key=f"fp_q1_{food_key}"):
+                                        st.session_state[quick_key] = 0.5
+                                        st.rerun()
+                                with qc2:
+                                    if st.button("Medium\n1x", use_container_width=True, key=f"fp_q2_{food_key}"):
+                                        st.session_state[quick_key] = 1.0
+                                        st.rerun()
+                                with qc3:
+                                    if st.button("Large\n1.5x", use_container_width=True, key=f"fp_q3_{food_key}"):
+                                        st.session_state[quick_key] = 1.5
+                                        st.rerun()
+                                with qc4:
+                                    if st.button("XL\n2x", use_container_width=True, key=f"fp_q4_{food_key}"):
+                                        st.session_state[quick_key] = 2.0
+                                        st.rerun()
+                            
+                            # Apply quick size if selected
+                            if st.session_state.get(quick_key) is not None:
+                                serving_amount = st.session_state[quick_key]
                             
                             # Calculate multiplier
                             portion_multiplier = app.calculate_multiplier(food_category, serving_amount)
