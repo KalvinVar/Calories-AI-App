@@ -1,9 +1,10 @@
 import streamlit as st
 from google.cloud import vision
 from google.oauth2 import service_account
-from PIL import Image
+from PIL import Image, ImageFilter, ImageEnhance
 import io
 import os
+import re
 from dotenv import load_dotenv
 import requests
 import json
@@ -428,53 +429,241 @@ def validate_ean13_checksum(barcode):
     
     return checksum == int(barcode[12])
 
+def _preprocess_barcode_variants(img):
+    """Generate preprocessed image variants for better barcode detection on low-quality images"""
+    variants = []
+    
+    # Convert to grayscale
+    gray = img.convert('L')
+    variants.append(("grayscale", gray))
+    
+    # Sharpened
+    sharpened = gray.filter(ImageFilter.SHARPEN)
+    variants.append(("sharpened", sharpened))
+    
+    # Double sharpened (for very blurry images)
+    double_sharp = sharpened.filter(ImageFilter.SHARPEN)
+    variants.append(("double_sharp", double_sharp))
+    
+    # High contrast
+    enhancer = ImageEnhance.Contrast(gray)
+    high_contrast = enhancer.enhance(2.0)
+    variants.append(("high_contrast", high_contrast))
+    
+    # Sharpen + high contrast combo
+    enhancer = ImageEnhance.Contrast(sharpened)
+    sharp_contrast = enhancer.enhance(2.0)
+    variants.append(("sharp_contrast", sharp_contrast))
+    
+    # Brightness boost (for dark/underexposed images)
+    enhancer = ImageEnhance.Brightness(gray)
+    bright = enhancer.enhance(1.5)
+    variants.append(("bright", bright))
+    
+    # Binary threshold (good for faded/washed-out images)
+    binary = gray.point(lambda x: 255 if x > 128 else 0)
+    variants.append(("binary_128", binary))
+    
+    # Lower threshold binary (catches faint barcodes)
+    binary_low = gray.point(lambda x: 255 if x > 90 else 0)
+    variants.append(("binary_90", binary_low))
+    
+    # Higher threshold binary (for overexposed images)
+    binary_high = gray.point(lambda x: 255 if x > 170 else 0)
+    variants.append(("binary_170", binary_high))
+    
+    # Sharpen + binary combo
+    sharp_binary = sharpened.point(lambda x: 255 if x > 128 else 0)
+    variants.append(("sharp_binary", sharp_binary))
+    
+    return variants
+
+def _try_decode_orientations(img):
+    """Try decoding barcode at all rotations and flips. Returns list of candidates."""
+    rotations = [0, 90, 180, 270]
+    candidates = []
+    
+    for angle in rotations:
+        if angle == 0:
+            rotated_img = img
+        else:
+            rotated_img = img.rotate(-angle, expand=True)
+        
+        # Try normal orientation
+        barcodes = decode_barcode(rotated_img)
+        if barcodes:
+            barcode_data = barcodes[0].data.decode('utf-8')
+            barcode_type = barcodes[0].type
+            candidates.append((barcode_data, barcode_type, f"{angle}°", False))
+        
+        # Try horizontally flipped (mirror image)
+        flipped_img = rotated_img.transpose(Image.FLIP_LEFT_RIGHT)
+        barcodes = decode_barcode(flipped_img)
+        if barcodes:
+            barcode_data = barcodes[0].data.decode('utf-8')
+            barcode_type = barcodes[0].type
+            candidates.append((barcode_data, barcode_type, f"{angle}° flipped", True))
+    
+    return candidates
+
+def _pick_best_barcode(candidates):
+    """Pick best barcode from candidates — prioritizes valid EAN13 checksums"""
+    # First: validated EAN13
+    for data, btype, orient, flipped in candidates:
+        if btype == 'EAN13' and validate_ean13_checksum(data):
+            print(f"[Barcode] Valid EAN13 checksum at {orient}: {data}")
+            return data, btype
+    
+    # Second: any candidate
+    if candidates:
+        data, btype, orient, flipped = candidates[0]
+        print(f"[Barcode] Found at {orient} (no checksum validation): {data}")
+        return data, btype
+    
+    return None, None
+
+def _try_vision_api_barcode(image_file):
+    """Use Google Vision API text detection to OCR barcode digits as a fallback.
+    Most barcodes have human-readable digits printed below the bars — Vision API
+    can read these even when the bars themselves are too blurry for pyzbar."""
+    try:
+        global vision_client
+        if vision_client is None:
+            return None, None
+        
+        image_file.seek(0)
+        content = image_file.read()
+        image = vision.Image(content=content)
+        
+        response = vision_client.text_detection(image=image)
+        texts = response.text_annotations
+        
+        if not texts:
+            print("[Barcode] Vision API: no text detected")
+            return None, None
+        
+        # Check individual text annotations for barcode number patterns
+        for text in texts:
+            desc = text.description.strip().replace(" ", "")
+            # EAN-13: 13 digits
+            if re.match(r'^\d{13}$', desc):
+                if validate_ean13_checksum(desc):
+                    print(f"[Barcode] Vision API found valid EAN-13: {desc}")
+                    return desc, 'EAN13'
+            # UPC-A: 12 digits
+            if re.match(r'^\d{12}$', desc):
+                print(f"[Barcode] Vision API found UPC-A: {desc}")
+                return desc, 'UPCA'
+            # EAN-8: 8 digits
+            if re.match(r'^\d{8}$', desc):
+                print(f"[Barcode] Vision API found EAN-8: {desc}")
+                return desc, 'EAN8'
+        
+        # Try extracting digit sequences from full text block
+        if texts:
+            full_text = texts[0].description.replace(" ", "")
+            # Find all 12-13 digit sequences
+            digit_sequences = re.findall(r'(\d{12,13})', full_text)
+            for seq in digit_sequences:
+                if len(seq) == 13 and validate_ean13_checksum(seq):
+                    print(f"[Barcode] Vision API extracted valid EAN-13: {seq}")
+                    return seq, 'EAN13'
+                elif len(seq) == 12:
+                    print(f"[Barcode] Vision API extracted UPC-A: {seq}")
+                    return seq, 'UPCA'
+            
+            # Also try 8-digit sequences for EAN-8
+            ean8_sequences = re.findall(r'(\d{8})', full_text)
+            for seq in ean8_sequences:
+                # Avoid matching substrings of longer numbers already tried
+                if seq not in full_text.replace(seq, "", 1):
+                    print(f"[Barcode] Vision API extracted EAN-8: {seq}")
+                    return seq, 'EAN8'
+        
+        print("[Barcode] Vision API: no valid barcode numbers found in text")
+        return None, None
+    except Exception as e:
+        print(f"[Barcode] Vision API fallback error: {e}")
+        return None, None
+
 def scan_barcode_from_image(image_file):
-    """Scan barcode from uploaded image - tries multiple rotations and flips with validation"""
+    """Scan barcode from uploaded image with enhanced multi-phase detection:
+    Phase 1: Original image at all rotations/flips (fast path)
+    Phase 2: Preprocessed variants (sharpen, contrast, threshold) × orientations
+    Phase 3: Multi-scale scanning (upscale small images, downscale large ones)
+    Phase 4: Google Vision API text detection fallback (OCR barcode digits)
+    """
     try:
         image_file.seek(0)
         img = Image.open(image_file)
+        all_candidates = []
         
-        # Try multiple rotations (0°, 90°, 180°, 270°) and horizontal flip
-        rotations = [0, 90, 180, 270]
-        candidates = []  # Store all detected barcodes with their confidence
-        
-        for angle in rotations:
-            # Rotate image if needed
-            if angle == 0:
-                rotated_img = img
-            else:
-                rotated_img = img.rotate(-angle, expand=True)
-            
-            # Try normal orientation
-            barcodes = decode_barcode(rotated_img)
-            if barcodes:
-                barcode_data = barcodes[0].data.decode('utf-8')
-                barcode_type = barcodes[0].type
-                candidates.append((barcode_data, barcode_type, angle, False))
-            
-            # Try horizontally flipped (mirror image)
-            flipped_img = rotated_img.transpose(Image.FLIP_LEFT_RIGHT)
-            barcodes = decode_barcode(flipped_img)
-            if barcodes:
-                barcode_data = barcodes[0].data.decode('utf-8')
-                barcode_type = barcodes[0].type
-                candidates.append((barcode_data, barcode_type, angle, True))
-        
-        # Validate candidates - prioritize those with valid checksums
-        for barcode_data, barcode_type, angle, flipped in candidates:
-            if barcode_type == 'EAN13' and validate_ean13_checksum(barcode_data):
-                orientation = f"{angle}° rotation" + (" (flipped)" if flipped else "")
-                print(f"[Barcode] Valid checksum at {orientation}: {barcode_data}")
-                return barcode_data, barcode_type
-        
-        # If no valid EAN13 found, return first candidate (for other barcode types)
+        # === Phase 1: Original image at all rotations/flips (fast path) ===
+        candidates = _try_decode_orientations(img)
         if candidates:
-            barcode_data, barcode_type, angle, flipped = candidates[0]
-            orientation = f"{angle}° rotation" + (" (flipped)" if flipped else "")
-            print(f"[Barcode] Found at {orientation} (no checksum validation): {barcode_data}")
-            return barcode_data, barcode_type
+            result = _pick_best_barcode(candidates)
+            if result[0]:
+                print("[Barcode] Detected in Phase 1 (original image)")
+                return result
+            all_candidates.extend(candidates)
         
-        print("[Barcode] No barcode detected at any rotation/flip")
+        # === Phase 2: Preprocessed variants ===
+        print("[Barcode] Phase 2: Trying preprocessed variants...")
+        for variant_name, variant_img in _preprocess_barcode_variants(img):
+            candidates = _try_decode_orientations(variant_img)
+            if candidates:
+                result = _pick_best_barcode(candidates)
+                if result[0]:
+                    print(f"[Barcode] Detected in Phase 2 ({variant_name})")
+                    return result
+                all_candidates.extend(candidates)
+        
+        # === Phase 3: Multi-scale scanning ===
+        w, h = img.size
+        scales = []
+        if w < 1000 or h < 1000:
+            scales.append(2.0)  # Upscale small images
+        if w < 500 or h < 500:
+            scales.append(3.0)  # Try even larger for very small
+        if w > 3000 or h > 3000:
+            scales.append(0.5)  # Downscale very large images
+        
+        for scale in scales:
+            print(f"[Barcode] Phase 3: Trying {scale}x scale...")
+            scaled = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            
+            # Try original scaled image first
+            candidates = _try_decode_orientations(scaled)
+            if candidates:
+                result = _pick_best_barcode(candidates)
+                if result[0]:
+                    print(f"[Barcode] Detected in Phase 3 ({scale}x, original)")
+                    return result
+                all_candidates.extend(candidates)
+            
+            # Try best preprocessing variants at this scale (not all — performance)
+            for variant_name, variant_img in _preprocess_barcode_variants(scaled)[:5]:
+                candidates = _try_decode_orientations(variant_img)
+                if candidates:
+                    result = _pick_best_barcode(candidates)
+                    if result[0]:
+                        print(f"[Barcode] Detected in Phase 3 ({scale}x, {variant_name})")
+                        return result
+                    all_candidates.extend(candidates)
+        
+        # === Phase 4: Vision API text detection fallback ===
+        print("[Barcode] Phase 4: Trying Vision API text detection...")
+        result = _try_vision_api_barcode(image_file)
+        if result[0]:
+            print("[Barcode] Detected via Vision API text detection")
+            return result
+        
+        # Last resort: return best from all accumulated candidates
+        if all_candidates:
+            print("[Barcode] Returning best from accumulated candidates")
+            return _pick_best_barcode(all_candidates)
+        
+        print("[Barcode] No barcode detected after all 4 phases")
         return None, None
     except Exception as e:
         print(f"[Barcode] Scan error: {e}")

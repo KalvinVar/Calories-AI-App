@@ -102,8 +102,8 @@ def render(app):
         with col2:
             st.subheader("Nutrition Analysis")
             
-            # Auto-scan from uploaded image
-            with st.spinner("Scanning barcode..."):
+            # Auto-scan from uploaded image (enhanced multi-phase detection)
+            with st.spinner("Scanning barcode (trying multiple enhancement methods)..."):
                 barcode_data, barcode_type = app.scan_barcode_from_image(uploaded_file)
             
             if barcode_data:
@@ -577,14 +577,16 @@ Nutritional Facts:
                         st.caption("**Scanning tips:** Image quality, resolution, lighting, and camera angle (take photo straight-on, not tilted) can affect barcode accuracy. Try retaking with better conditions.")
             else:
                 st.error("❌ No barcode detected in image.")
-                st.info("💡 **Scanning tips:**")
+                st.info("💡 **The scanner tried multiple enhancement methods including image sharpening, contrast adjustment, multi-scale scanning, and AI text detection — but couldn't read this barcode.**")
                 st.markdown("""
+                **Tips for better results:**
                 - Ensure barcode is **clear and in focus**
                 - Use **good lighting** (avoid shadows/glare)
-                - Take photo **straight-on, not at an angle** (camera parallel to barcode surface)
-                - Get **close enough** so barcode fills frame
+                - Take photo **straight-on, not at an angle**
+                - Get **close enough** so barcode fills the frame
                 - Keep barcode lines **horizontal or vertical**
                 - Try a **higher resolution** image if possible
+                - Avoid **crumpled or damaged** barcode labels
                 
                 **Alternative:** Use the 'Quick Add' tab to search by product name.
                 """)
