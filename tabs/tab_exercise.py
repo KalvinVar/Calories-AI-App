@@ -126,7 +126,7 @@ def render(app):
     
     with col_weight:
         # Unit toggle
-        weight_unit = st.radio("Unit", ["kg", "lbs"], horizontal=True, key="weight_unit")
+        weight_unit = st.radio("Unit", ["kg", "lbs"], horizontal=True, key="exercise_weight_unit")
         
         if weight_unit == "lbs":
             default_lbs = round(latest_weight * 2.20462, 1)
