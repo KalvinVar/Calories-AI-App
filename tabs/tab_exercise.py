@@ -122,17 +122,34 @@ def render(app):
         latest_weight = 70  # default kg
     
     # Weight input at the top
-    col_weight, col_info = st.columns([1, 2])
+    col_weight, col_unit, col_info = st.columns([1.5, 0.8, 2])
+    
+    with col_unit:
+        weight_unit = st.radio("Unit", ["kg", "lbs"], horizontal=True, key="weight_unit", label_visibility="collapsed")
+    
     with col_weight:
-        user_weight = st.number_input(
-            "Your weight (kg)",
-            min_value=30.0,
-            max_value=300.0,
-            value=float(latest_weight),
-            step=0.5,
-            key="exercise_weight",
-            help="Used for accurate calorie burn estimation"
-        )
+        if weight_unit == "lbs":
+            default_lbs = round(latest_weight * 2.20462, 1)
+            user_weight_input = st.number_input(
+                "Your weight (lbs)",
+                min_value=66.0,
+                max_value=660.0,
+                value=float(default_lbs),
+                step=1.0,
+                key="exercise_weight",
+                help="Used for accurate calorie burn estimation"
+            )
+            user_weight = user_weight_input / 2.20462  # convert to kg for calculations
+        else:
+            user_weight = st.number_input(
+                "Your weight (kg)",
+                min_value=30.0,
+                max_value=300.0,
+                value=float(latest_weight),
+                step=0.5,
+                key="exercise_weight",
+                help="Used for accurate calorie burn estimation"
+            )
     with col_info:
         st.info("💡 Calorie burn is estimated using **MET values** (Metabolic Equivalent of Task). More accurate with your current weight.")
     
