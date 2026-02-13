@@ -311,15 +311,7 @@ def render_exercise_logger(app, user_weight):
                     help="Total weight you're lifting per rep (include the bar if applicable)"
                 )
 
-        # Rest between sets
-        rest_seconds = st.number_input(
-            "Rest between sets (seconds)",
-            min_value=10, max_value=600, value=90, step=15,
-            key="ex_rest",
-            help="Average rest time between each set"
-        )
-
-        # Quick rest presets
+        # Quick rest presets (must be BEFORE the number_input to avoid widget key conflict)
         st.caption("**Quick rest presets:**")
         rest_cols = st.columns(4)
         rest_presets = [("30s", 30), ("60s", 60), ("90s", 90), ("2min", 120)]
@@ -328,6 +320,14 @@ def render_exercise_logger(app, user_weight):
                 if st.button(label, use_container_width=True, key=f"rest_{val}"):
                     st.session_state['ex_rest'] = val
                     st.rerun()
+
+        # Rest between sets
+        rest_seconds = st.number_input(
+            "Rest between sets (seconds)",
+            min_value=10, max_value=600, value=90, step=15,
+            key="ex_rest",
+            help="Average rest time between each set"
+        )
 
         # Calculate detailed
         rom = EXERCISE_ROM.get(exercise_name, 0.50)
