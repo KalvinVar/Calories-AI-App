@@ -300,7 +300,7 @@ def render_exercise_logger(app, user_weight):
     if is_strength:
         use_detailed = st.toggle(
             "📊 **Detailed Mode** — Enter sets, reps & weight for more accurate estimation",
-            value=False,
+            value=True,
             key="ex_detailed_mode",
             help="Uses volume-based calculation instead of simple MET. More accurate for weight training because it accounts for the actual weight you're lifting."
         )
