@@ -1,35 +1,50 @@
 # 🍽️ Food Calorie Analyzer
 
-An AI-powered nutrition tracking app that analyzes food images and provides comprehensive calorie and nutritional information with intelligent portion size detection.
+An AI-powered nutrition & fitness tracking app that analyzes food images, searches nutrition databases, and tracks exercise — all with intelligent portion size detection and comprehensive logging.
 
 ## ✨ Features
 
 ### 🔍 Multi-Mode Food Analysis
-- **📸 Photo Analysis**: Upload food images with AI-powered recognition
-- **📷 Barcode Scanning**: Scan product barcodes for instant nutrition data
+- **📸 Photo Analysis**: Upload food images with AI-powered recognition (Google Vision API)
+- **📷 Barcode Scanning**: Scan product barcodes for instant nutrition data (Open Food Facts)
+- **🔍 Food Search**: Search 500,000+ foods from USDA FoodData Central
+  - 12 popular food quick-tap buttons (Chicken, Rice, Egg, Banana, etc.)
+  - Recent search history (last 10 searches, clickable)
+  - Filter by source (All / Generic USDA / Branded)
+  - Sort by Relevance, Calories, or Protein
 - **🍽️ Multi-Item Detection**: Automatically detects multiple foods in one image
 - **✅ Flexible Selection**: Choose single items or combine multiple foods into one meal
 
 ### 📊 Smart Nutrition Tracking
-- **Detailed Macros**: Calories, protein, carbs, fat per 100g (USDA standard)
+- **Detailed Macros**: Calories, protein, carbs/sugar, fat per 100g (USDA standard)
 - **Intelligent Portions**: Category-based serving sizes (pieces, cups, grams, ml)
-- **Quick Presets**: Small/Medium/Large/XL portion shortcuts
+- **Quick Presets**: Category-specific portion shortcuts across all 3 food modes
 - **Educational UI**: Learn about portion calculations with visual examples
 
 ### 📅 Comprehensive Meal Management
-- **Daily Summary**: Track breakfast, lunch, dinner, and snacks
-- **Meal History**: View past meals with images and nutrition data
-- **Goal Setting**: Set and track daily calorie & macro goals
-- **Progress Charts**: Visualize weight trends and nutrition patterns
-- **Water Tracking**: Monitor daily hydration (8 glasses goal)
-- **Quick Add**: Manually log foods without photos
+- **Daily Summary**: Track breakfast, lunch, dinner, and snacks with progress bars
+- **Meal History**: View past meals with images, nutrition data, and CSV export
+- **Goal Setting**: Mifflin-St Jeor BMR calculator with activity levels and pace selection
+- **Progress Charts**: Weight tracking (kg/lbs toggle) and calorie trend charts
+- **Water Tracking**: Monitor daily hydration with glass counter
+- **Quick Add**: Manually log foods or re-add recent meals with one tap
+
+### 🏋️ Exercise & Fitness Tracking
+- **80+ Exercises**: 7 categories (Running, Cycling, Swimming, Walking, Gym/Weights, Sports, Other)
+- **Dual Calorie Modes**:
+  - **Simple (MET)**: Standard formula for cardio — `Calories = MET × weight(kg) × duration(hours)`
+  - **Detailed (Volume-based)**: Strength exercises with mechanical work, rest metabolism, and EPOC afterburn
+- **19 Strength Exercises with ROM Data**: Squat (0.65m), Bench Press (0.50m), Deadlift (0.60m), and more
+- **Weight Unit Toggle**: kg/lbs support with automatic conversion
+- **4 Educational Sections**: Estimation methods, accuracy margins, MET science, and tips
+- **Workout Log**: Streaks, weekly summaries, all-time stats, bar charts, and delete confirmations
 
 ## 🛠️ Tech Stack
 
 - **Framework:** Streamlit (Python web app)
 - **AI Vision:** Google Cloud Vision API (label detection + object localization)
 - **Nutrition APIs:** 
-  - USDA FoodData Central (500,000+ foods)
+  - USDA FoodData Central (500,000+ foods, search + nutrient lookup)
   - Open Food Facts (barcode products)
 - **Barcode:** pyzbar (QR & barcode reading)
 - **Data Storage:** JSON-based local persistence
@@ -38,16 +53,20 @@ An AI-powered nutrition tracking app that analyzes food images and provides comp
 ## 🏗️ Architecture
 
 **Modular Design:**
-- **app.py** (809 lines): Core utilities and API integrations
-- **tabs/** (6 modules, 1,891 lines): Separate UI components
-  - `tab_analyze.py` - Photo/barcode scanning
-  - `tab_summary.py` - Daily nutrition overview
-  - `tab_goals.py` - Goal management with calculator
-  - `tab_history.py` - Meal history browser
-  - `tab_progress.py` - Weight and calorie trends
-  - `tab_quick_add.py` - Manual food entry
+- **app.py** (~976 lines): Core utilities, API integrations, shared functions
+- **tabs/** (8 modules): Separate UI components
+  - `tab_analyze.py` (~2,194 lines) - Photo/barcode/search food analysis
+  - `tab_summary.py` (~119 lines) - Daily nutrition overview
+  - `tab_goals.py` (~306 lines) - Goal management with BMR calculator
+  - `tab_history.py` (~240 lines) - Meal history browser with CSV export
+  - `tab_progress.py` (~95 lines) - Weight (kg/lbs) and calorie trends
+  - `tab_quick_add.py` (~234 lines) - Manual food entry & recent foods
+  - `tab_exercise.py` (~908 lines) - Exercise tracker (MET + detailed mode)
+  - `tab_workout_log.py` (~395 lines) - Workout log, streaks, stats
 
-**Data Flow**: Image → Vision API → USDA lookup → Smart serving detection → Multiplier calculation → 100g Standard (all nutrition normalized to 100g, then scaled to user portions)
+**Data Flow**: 
+- Food: Image/Barcode/Search → API lookup → Smart serving detection → Multiplier → Save
+- Exercise: Select exercise → MET or Volume calculation → Save to log
 
 ## ☁️ Deployment to Streamlit Community Cloud (FREE)
 
@@ -179,37 +198,58 @@ The app will open at `http://localhost:8501` (or your network IP like `http://10
 ## 📱 Usage
 
 ### Tab 1: Analyze Food
-1. **Choose mode**: 🍕 Food Photo or 📷 Product Barcode
-2. **Upload image**: Click "Browse files" or drag & drop
+1. **Choose mode**: 🍕 Food Photo, 📷 Product Barcode, or 🔍 Search Foods
+2. **Upload image / scan barcode / search by name**
 3. **Select items**: 
    - Single item: Pick from dropdown (default)
    - Multiple items: Check "Combine multiple items" box
-4. **Adjust portions**: Use smart serving inputs (pieces, cups, grams, etc.)
+   - Search: Browse results, filter by source, sort by nutrition
+4. **Adjust portions**: Use smart serving inputs or quick size buttons
 5. **Save meal**: Add to breakfast, lunch, dinner, or snacks
 
 ### Tab 2: Daily Summary
 - View today's meals grouped by meal type
 - See total calories and macros vs goals
-- Track water intake (8 glasses/day)
+- Track water intake
 - Visual progress bars
 
 ### Tab 3: Set Goals
-- Configure daily targets (calories, protein, carbs, fat)
-- Common presets: Maintenance, Cut, Bulk
+- Mifflin-St Jeor BMR calculator with gender, age, height, weight
+- 5 activity levels with detailed descriptions
+- Goal type: Maintain, Lose, or Gain weight
+- Adjustable pace slider (0.5–1.0 kg/week) with safety warnings
+- Auto-calculated timeline to target weight
+- Configure daily targets (calories, protein, carbs/sugar, fat)
 
 ### Tab 4: View History
-- Browse meals by date
-- See saved food images
-- Review past nutrition data
+- Browse meals by date with images
+- Delete individual meals or entire days
+- Bulk delete by date range
+- Export to CSV with full nutrition data
 
 ### Tab 5: Progress
-- Log daily weight
-- View weight trend chart
-- Track nutrition patterns over time
+- Log daily weight with kg/lbs toggle
+- Weight trend line chart
+- Calorie trends bar chart (last 7 days)
 
 ### Tab 6: Quick Add
-- Manually enter foods without photos
-- Direct calorie and macro input
+- Manually enter foods by name (USDA lookup)
+- Barcode scanning shortcut
+- Re-add recent foods with one tap
+
+### Tab 7: Exercise Tracker
+- Select from 80+ exercises across 7 categories
+- Enter body weight, duration, and load weight
+- Toggle between MET (simple) and detailed (volume-based) calorie estimation
+- Quick preset buttons for duration, rest time, and weights
+- Save exercises with notes
+
+### Tab 8: Workout Log
+- View exercise history by date
+- Weekly calendar view with active days highlighted
+- Streak tracking (current and longest)
+- All-time stats with bar charts
+- Delete exercises with confirmation
 
 ## 💡 Tips for Best Results
 
@@ -253,6 +293,7 @@ All data stored locally in JSON files:
 - `data/goals.json` - Daily calorie & macro targets
 - `data/weight.json` - Weight tracking entries
 - `data/water.json` - Daily water intake
+- `data/exercises.json` - Exercise history grouped by date
 - `data/meal_images/` - Saved food photos (JPEGs)
 
 ## ⚠️ Limitations
@@ -294,14 +335,19 @@ Built with extensibility in mind. See `.github/copilot-instructions.md` for:
 ## 🚀 Future Enhancements
 
 - [x] Meal tracking and history
-- [x] Daily calorie goals
+- [x] Daily calorie goals with BMR calculator
 - [x] Barcode scanning
 - [x] Multi-item detection
-- [x] Smart portion presets
+- [x] Smart portion presets (all 3 modes)
+- [x] Food search (USDA, popular foods, recent searches, filter/sort)
+- [x] Exercise tracker (MET + detailed volume-based)
+- [x] Workout log with streaks and stats
+- [x] Weight unit toggle (kg/lbs)
+- [x] CSV export
+- [x] Carbs/Sugar labeling throughout
 - [ ] User accounts and cloud sync
 - [ ] Recipe suggestions
 - [ ] Export to fitness apps (MyFitnessPal, etc.)
-- [ ] Nutrition trends dashboard
 - [ ] Meal planning features
 
 ## 📄 License
