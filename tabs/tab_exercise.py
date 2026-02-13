@@ -397,7 +397,7 @@ def render_exercise_logger(app, user_weight):
         with col_c:
             st.metric("🔥 EPOC (Afterburn)", f"{detailed_result['epoc']:.0f} cal")
         with col_d:
-            st.metric("📦 Total Volume", f"{detailed_result['total_volume_kg']:.0f} kg")
+            st.metric("📦 Total Weight Moved", f"{detailed_result['total_volume_kg']:.0f} kg")
 
         # MET comparison
         met_calories = calculate_calories_burned(exercise_data['met'], user_weight, duration)
@@ -485,7 +485,7 @@ def render_exercise_logger(app, user_weight):
         if detailed_result:
             st.markdown(f"""
 ---
-**📦 Total Volume Lifted:** {detailed_result['total_volume_kg']:.0f} kg ({sets} sets × {reps} reps × {load_kg:.1f} kg)
+**📦 Total Weight Moved:** {detailed_result['total_volume_kg']:.0f} kg ({sets} sets × {reps} reps × {load_kg:.1f} kg)
 
 **⚙️ Mechanical Work:** {detailed_result['mechanical_work_joules']:.0f} joules
 
