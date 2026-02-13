@@ -1933,6 +1933,7 @@ def render_search_mode(app):
             for col, (label, query) in zip(cols, row):
                 with col:
                     if st.button(label, key=f"pop_{query.replace(' ', '_')}", use_container_width=True):
+                        st.session_state['search_input'] = query
                         st.session_state['search_query_text'] = query
                         st.session_state['last_search_query'] = ""  # Force re-search
                         st.rerun()
@@ -1946,6 +1947,7 @@ def render_search_mode(app):
             st.markdown("**🕐 Recent Searches**")
             for idx, prev_query in enumerate(st.session_state['search_history'][:5]):
                 if st.button(f"🔄 {prev_query}", key=f"hist_{idx}_{prev_query[:15]}", use_container_width=True):
+                    st.session_state['search_input'] = prev_query
                     st.session_state['search_query_text'] = prev_query
                     st.session_state['last_search_query'] = ""  # Force re-search
                     st.rerun()
@@ -1970,21 +1972,37 @@ def render_search_mode(app):
             st.session_state['search_query_text'] = ""
             st.rerun()
         
+        # If a popular/recent food button was pressed, pre-fill the input
+        if st.session_state.get('search_query_text', '') and 'search_input' in st.session_state:
+            if st.session_state['search_input'] != st.session_state['search_query_text']:
+                st.session_state['search_input'] = st.session_state['search_query_text']
+        
         # Search input
         search_query = st.text_input(
             "Type a food name to search",
             placeholder="e.g., chicken breast, apple, pizza, rice...",
             help="Search USDA FoodData Central (500,000+ foods)",
-            key="search_input",
-            value=st.session_state['search_query_text']
+            key="search_input"
         )
         
-        # Update session state
+        # Sync text_input value back to our tracking state
         st.session_state['search_query_text'] = search_query
         
+        # Search button for explicit triggering
+        search_btn = st.button("🔍 Search", type="primary", use_container_width=True, key="search_btn")
+        
+        # Determine if we should search
+        should_search = False
         if search_query and len(search_query) >= 2:
-            # Only call API if query changed (avoid re-fetching on every rerun)
-            if search_query != st.session_state.get('last_search_query', ''):
+            if search_btn:
+                # Button click always forces a fresh search
+                should_search = True
+            elif search_query != st.session_state.get('last_search_query', ''):
+                # Query text changed (typed + Enter or popular food button)
+                should_search = True
+        
+        if search_query and len(search_query) >= 2:
+            if should_search:
                 with st.spinner("Searching USDA database..."):
                     results = search_usda_foods(search_query, app.USDA_API_KEY, max_results=15)
                     st.session_state['search_results'] = results
@@ -2039,7 +2057,7 @@ def render_search_mode(app):
                 if not filtered:
                     st.info("No results match your filter. Try 'All'.")
                 
-                # Display results as compact cards
+                # Display results as expandable cards
                 for idx, food in enumerate(filtered):
                     nutrients = food.get('nutrition', {})
                     cal = nutrients.get('calories', 0)
@@ -2047,28 +2065,38 @@ def render_search_mode(app):
                     carb = nutrients.get('carbs', 0)
                     fat = nutrients.get('fat', 0)
                     
-                    # Source badge color
+                    # Source badge
                     is_branded = food.get('dataType') == 'Branded'
                     source_badge = "🏪" if is_branded else "📊"
-                    brand_text = food.get('brand', 'Generic')
-                    if brand_text and brand_text != 'Generic' and len(brand_text) > 25:
-                        brand_text = brand_text[:25] + "…"
                     
                     food_name = food['name']
-                    if len(food_name) > 45:
-                        food_name = food_name[:45] + "…"
+                    if len(food_name) > 50:
+                        food_name = food_name[:50] + "…"
                     
-                    # Compact card layout
-                    with st.container():
-                        card_col1, card_col2 = st.columns([3, 1])
-                        with card_col1:
-                            st.markdown(f"**{source_badge} {food_name}**")
-                            st.caption(f"{brand_text} · 🔥 {cal:.0f} cal · 💪 {pro:.1f}g P · 🍞 {carb:.1f}g C · 🥑 {fat:.1f}g F  *(per 100g)*")
-                        with card_col2:
+                    with st.expander(f"🍴 {food_name}", expanded=(idx == 0)):
+                        col_info, col_btn = st.columns([2, 1])
+                        
+                        with col_info:
+                            brand_text = food.get('brand', 'Generic')
+                            st.caption(f"**Brand:** {brand_text}")
+                            st.caption(f"**Source:** {source_badge} {food.get('dataType', 'USDA')}")
+                        
+                        with col_btn:
                             if st.button("✅ Select", key=f"select_{idx}", type="primary", use_container_width=True):
                                 st.session_state['pending_food_select'] = food
                                 st.rerun()
-                        st.markdown("<hr style='margin: 0.25rem 0; opacity: 0.2;'>", unsafe_allow_html=True)
+                        
+                        # Nutrition info (per 100g)
+                        st.markdown("**Nutrition (per 100g):**")
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("🔥 Cal", f"{cal:.0f}")
+                        with col2:
+                            st.metric("💪 Protein", f"{pro:.1f}g")
+                        with col3:
+                            st.metric("🍞 Carbs", f"{carb:.1f}g")
+                        with col4:
+                            st.metric("🥑 Fat", f"{fat:.1f}g")
             else:
                 st.info("💡 No results found. Try a different search term.")
         elif search_query:
