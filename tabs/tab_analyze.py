@@ -1936,6 +1936,7 @@ def render_search_mode(app):
                         st.session_state['search_input'] = query
                         st.session_state['search_query_text'] = query
                         st.session_state['last_search_query'] = ""  # Force re-search
+                        st.session_state['_search_prefill_pending'] = True
                         st.rerun()
         
         # --- RECENT SEARCHES ---
@@ -1950,6 +1951,7 @@ def render_search_mode(app):
                     st.session_state['search_input'] = prev_query
                     st.session_state['search_query_text'] = prev_query
                     st.session_state['last_search_query'] = ""  # Force re-search
+                    st.session_state['_search_prefill_pending'] = True
                     st.rerun()
     
     with col2:
@@ -1973,15 +1975,16 @@ def render_search_mode(app):
             st.rerun()
         
         # If a popular/recent food button was pressed, pre-fill the input
-        if st.session_state.get('search_query_text', '') and 'search_input' in st.session_state:
-            if st.session_state['search_input'] != st.session_state['search_query_text']:
-                st.session_state['search_input'] = st.session_state['search_query_text']
+        # Only do this when there's a pending prefill (set by button clicks)
+        if st.session_state.get('_search_prefill_pending', False):
+            st.session_state['search_input'] = st.session_state.get('search_query_text', '')
+            st.session_state['_search_prefill_pending'] = False
         
         # Search input
         search_query = st.text_input(
             "Type a food name to search",
             placeholder="e.g., chicken breast, apple, pizza, rice...",
-            help="Search USDA FoodData Central (500,000+ foods)",
+            help="Search USDA FoodData Central (500,000+ foods). Type and press Enter or click Search.",
             key="search_input"
         )
         
