@@ -122,12 +122,12 @@ def render(app):
         latest_weight = 70  # default kg
     
     # Weight input at the top
-    col_weight, col_unit, col_info = st.columns([1.5, 0.8, 2])
-    
-    with col_unit:
-        weight_unit = st.radio("Unit", ["kg", "lbs"], horizontal=True, key="weight_unit", label_visibility="collapsed")
+    col_weight, col_info = st.columns([1, 2])
     
     with col_weight:
+        # Unit toggle
+        weight_unit = st.radio("Unit", ["kg", "lbs"], horizontal=True, key="weight_unit")
+        
         if weight_unit == "lbs":
             default_lbs = round(latest_weight * 2.20462, 1)
             user_weight_input = st.number_input(
