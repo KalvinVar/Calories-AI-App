@@ -1894,10 +1894,10 @@ def render_search_mode(app):
         st.markdown("""
         <div style="
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 4rem;
+            padding: 3rem;
             border-radius: 15px;
             text-align: center;
-            font-size: 6rem;
+            font-size: 5rem;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             margin-bottom: 1rem;
         ">
@@ -1905,16 +1905,50 @@ def render_search_mode(app):
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("**USDA FoodData Central**")
-        st.caption("500,000+ foods in database")
-        st.caption("Search by name, brand, or category")
+        st.caption("**USDA FoodData Central** · 500,000+ foods")
         
+        # --- POPULAR FOODS (Quick one-tap search) ---
         st.markdown("---")
-        st.caption("**Example searches:**")
-        st.caption("• Chicken breast")
-        st.caption("• McDonalds Big Mac")
-        st.caption("• Apple")
-        st.caption("• White rice")
+        st.markdown("**🔥 Popular Foods**")
+        
+        popular_foods = [
+            ("🍗 Chicken Breast", "chicken breast"),
+            ("🍚 White Rice", "white rice cooked"),
+            ("🥚 Egg", "egg whole"),
+            ("🍌 Banana", "banana raw"),
+            ("🍞 Bread", "bread white"),
+            ("🥛 Milk", "milk whole"),
+            ("🍎 Apple", "apple raw"),
+            ("🥩 Beef", "ground beef"),
+            ("🐟 Salmon", "salmon fillet"),
+            ("🥑 Avocado", "avocado raw"),
+            ("🍝 Pasta", "pasta cooked"),
+            ("🧀 Cheese", "cheddar cheese"),
+        ]
+        
+        # 3-column grid of popular food buttons
+        pop_rows = [popular_foods[i:i+3] for i in range(0, len(popular_foods), 3)]
+        for row in pop_rows:
+            cols = st.columns(len(row))
+            for col, (label, query) in zip(cols, row):
+                with col:
+                    if st.button(label, key=f"pop_{query.replace(' ', '_')}", use_container_width=True):
+                        st.session_state['search_query_text'] = query
+                        st.session_state['last_search_query'] = ""  # Force re-search
+                        st.rerun()
+        
+        # --- RECENT SEARCHES ---
+        if 'search_history' not in st.session_state:
+            st.session_state['search_history'] = []
+        
+        if st.session_state['search_history']:
+            st.markdown("---")
+            st.markdown("**🕐 Recent Searches**")
+            for idx, prev_query in enumerate(st.session_state['search_history'][:5]):
+                if st.button(f"🔄 {prev_query}", key=f"hist_{idx}_{prev_query[:15]}", use_container_width=True):
+                    st.session_state['search_query_text'] = prev_query
+                    st.session_state['last_search_query'] = ""  # Force re-search
+                    st.rerun()
     
     with col2:
         st.subheader("Search Results")
@@ -1940,7 +1974,7 @@ def render_search_mode(app):
         search_query = st.text_input(
             "Type a food name to search",
             placeholder="e.g., chicken breast, apple, pizza, rice...",
-            help="Start typing to search USDA FoodData Central",
+            help="Search USDA FoodData Central (500,000+ foods)",
             key="search_input",
             value=st.session_state['search_query_text']
         )
@@ -1952,56 +1986,103 @@ def render_search_mode(app):
             # Only call API if query changed (avoid re-fetching on every rerun)
             if search_query != st.session_state.get('last_search_query', ''):
                 with st.spinner("Searching USDA database..."):
-                    results = search_usda_foods(search_query, app.USDA_API_KEY)
+                    results = search_usda_foods(search_query, app.USDA_API_KEY, max_results=15)
                     st.session_state['search_results'] = results
                     st.session_state['last_search_query'] = search_query
+                    
+                    # Add to search history (no duplicates, most recent first)
+                    history = st.session_state.get('search_history', [])
+                    if search_query.lower() not in [h.lower() for h in history]:
+                        history.insert(0, search_query)
+                        st.session_state['search_history'] = history[:10]  # Keep last 10
             
             # Use cached results
             results = st.session_state.get('search_results', None)
             
             if results:
-                st.success(f"✅ Found {len(results)} matching foods")
+                # --- FILTER + SORT CONTROLS ---
+                filter_col, sort_col = st.columns(2)
+                with filter_col:
+                    source_filter = st.selectbox(
+                        "Filter by source",
+                        ["All", "Generic (USDA)", "Branded"],
+                        key="search_filter",
+                        label_visibility="collapsed",
+                        help="Filter results by data source"
+                    )
+                with sort_col:
+                    sort_by = st.selectbox(
+                        "Sort by",
+                        ["Relevance", "Calories ↑", "Calories ↓", "Protein ↓"],
+                        key="search_sort",
+                        label_visibility="collapsed",
+                        help="Sort results"
+                    )
                 
-                # Display results as expandable cards
-                for idx, food in enumerate(results):
-                    with st.expander(f"🍴 {food['name'][:50]}{'...' if len(food['name']) > 50 else ''}", expanded=(idx == 0)):
-                        col1, col2 = st.columns([2, 1])
-                        
-                        with col1:
-                            st.caption(f"**Brand:** {food.get('brand', 'Generic')}")
-                            st.caption(f"**Source:** {food.get('dataType', 'USDA')}")
-                        
-                        with col2:
+                # Apply filter
+                filtered = results
+                if source_filter == "Generic (USDA)":
+                    filtered = [f for f in results if f.get('dataType') in ['Survey (FNDDS)', 'Foundation', 'SR Legacy']]
+                elif source_filter == "Branded":
+                    filtered = [f for f in results if f.get('dataType') == 'Branded']
+                
+                # Apply sort
+                if sort_by == "Calories ↑":
+                    filtered = sorted(filtered, key=lambda f: f['nutrition'].get('calories', 0))
+                elif sort_by == "Calories ↓":
+                    filtered = sorted(filtered, key=lambda f: f['nutrition'].get('calories', 0), reverse=True)
+                elif sort_by == "Protein ↓":
+                    filtered = sorted(filtered, key=lambda f: f['nutrition'].get('protein', 0), reverse=True)
+                
+                st.caption(f"Showing {len(filtered)} of {len(results)} results")
+                
+                if not filtered:
+                    st.info("No results match your filter. Try 'All'.")
+                
+                # Display results as compact cards
+                for idx, food in enumerate(filtered):
+                    nutrients = food.get('nutrition', {})
+                    cal = nutrients.get('calories', 0)
+                    pro = nutrients.get('protein', 0)
+                    carb = nutrients.get('carbs', 0)
+                    fat = nutrients.get('fat', 0)
+                    
+                    # Source badge color
+                    is_branded = food.get('dataType') == 'Branded'
+                    source_badge = "🏪" if is_branded else "📊"
+                    brand_text = food.get('brand', 'Generic')
+                    if brand_text and brand_text != 'Generic' and len(brand_text) > 25:
+                        brand_text = brand_text[:25] + "…"
+                    
+                    food_name = food['name']
+                    if len(food_name) > 45:
+                        food_name = food_name[:45] + "…"
+                    
+                    # Compact card layout
+                    with st.container():
+                        card_col1, card_col2 = st.columns([3, 1])
+                        with card_col1:
+                            st.markdown(f"**{source_badge} {food_name}**")
+                            st.caption(f"{brand_text} · 🔥 {cal:.0f} cal · 💪 {pro:.1f}g P · 🍞 {carb:.1f}g C · 🥑 {fat:.1f}g F  *(per 100g)*")
+                        with card_col2:
                             if st.button("✅ Select", key=f"select_{idx}", type="primary", use_container_width=True):
-                                # Store selection for next rerun (avoids lost state)
                                 st.session_state['pending_food_select'] = food
                                 st.rerun()
-                        
-                        # Nutrition info (per 100g)
-                        if food.get('nutrition'):
-                            st.markdown("**Nutrition (per 100g):**")
-                            
-                            nutrients = food['nutrition']
-                            col1, col2, col3, col4 = st.columns(4)
-                            
-                            with col1:
-                                st.metric("🔥", f"{nutrients.get('calories', 0):.0f}")
-                            with col2:
-                                st.metric("💪", f"{nutrients.get('protein', 0):.1f}g")
-                            with col3:
-                                st.metric("🍞", f"{nutrients.get('carbs', 0):.1f}g")
-                            with col4:
-                                st.metric("🥑", f"{nutrients.get('fat', 0):.1f}g")
+                        st.markdown("<hr style='margin: 0.25rem 0; opacity: 0.2;'>", unsafe_allow_html=True)
             else:
                 st.info("💡 No results found. Try a different search term.")
         elif search_query:
             st.info("👆 Type at least 2 characters to search")
         else:
-            st.info("👆 Enter a food name above to start searching")
+            st.info("👆 Enter a food name above or tap a popular food to start")
 
 
-def search_usda_foods(query, api_key, max_results=10):
-    """Search USDA FoodData Central and return formatted results"""
+def search_usda_foods(query, api_key, max_results=15):
+    """Search USDA FoodData Central and return formatted results
+    
+    Prioritizes generic (Survey/Foundation) results for common searches,
+    and includes branded items for specific brand queries.
+    """
     import requests
     
     try:
@@ -2023,6 +2104,8 @@ def search_usda_foods(query, api_key, max_results=10):
         foods = data.get('foods', [])
         
         results = []
+        seen_names = set()  # Deduplicate similar names
+        
         for food in foods:
             # Extract nutrition per 100g
             nutrients_dict = {}
@@ -2039,16 +2122,38 @@ def search_usda_foods(query, api_key, max_results=10):
                     nutrients_dict['carbs'] = value
                 elif nutrient_id == 1004:  # Fat
                     nutrients_dict['fat'] = value
+                elif nutrient_id == 1079:  # Fiber
+                    nutrients_dict['fiber'] = value
+                elif nutrient_id == 2000:  # Sugar
+                    nutrients_dict['sugar'] = value
             
             # Only include foods with calorie data
             if nutrients_dict.get('calories', 0) > 0:
+                name = food.get('description', 'Unknown')
+                
+                # Deduplicate very similar names (case-insensitive)
+                name_key = name.lower().strip()
+                if name_key in seen_names:
+                    continue
+                seen_names.add(name_key)
+                
+                # Extract serving size if available
+                serving_size = food.get('servingSize', None)
+                serving_unit = food.get('servingSizeUnit', 'g')
+                
                 results.append({
-                    'name': food.get('description', 'Unknown'),
+                    'name': name,
                     'brand': food.get('brandOwner', food.get('brandName', 'Generic')),
                     'dataType': food.get('dataType', 'USDA'),
                     'fdcId': food.get('fdcId'),
-                    'nutrition': nutrients_dict
+                    'nutrition': nutrients_dict,
+                    'servingSize': serving_size,
+                    'servingUnit': serving_unit
                 })
+        
+        # Sort: prioritize generic USDA data first, then branded
+        priority = {'Survey (FNDDS)': 0, 'Foundation': 1, 'SR Legacy': 2, 'Branded': 3}
+        results.sort(key=lambda f: priority.get(f.get('dataType', ''), 4))
         
         return results
         
