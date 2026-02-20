@@ -57,6 +57,22 @@ if vision_client is None or USDA_API_KEY is None:
     st.error("❌ Failed to initialize API clients. Check your secrets configuration.")
     st.stop()
 
+# =============================================================================
+# FIREBASE CONFIG (optional — enables cloud accounts & cross-device sync)
+# =============================================================================
+FIREBASE_API_KEY = None
+FIREBASE_PROJECT_ID = None
+try:
+    FIREBASE_API_KEY = st.secrets.get("FIREBASE_API_KEY")
+    FIREBASE_PROJECT_ID = st.secrets.get("FIREBASE_PROJECT_ID")
+except Exception:
+    pass
+if not FIREBASE_API_KEY:
+    FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
+if not FIREBASE_PROJECT_ID:
+    FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
+FIREBASE_ENABLED = bool(FIREBASE_API_KEY and FIREBASE_PROJECT_ID)
+
 # Data directory
 DATA_DIR = Path("data")
 DATA_DIR.mkdir(exist_ok=True)
@@ -64,6 +80,7 @@ MEALS_FILE = DATA_DIR / "meals.json"
 GOALS_FILE = DATA_DIR / "goals.json"
 WEIGHT_FILE = DATA_DIR / "weight.json"
 WATER_FILE = DATA_DIR / "water.json"
+EXERCISES_FILE = DATA_DIR / "exercises.json"
 IMAGES_DIR = DATA_DIR / "meal_images"
 IMAGES_DIR.mkdir(exist_ok=True)
 
@@ -331,6 +348,7 @@ def save_meal(meal_data, meal_date=None):
     meal_data['timestamp'] = datetime.now().isoformat()
     meals[meal_date].append(meal_data)
     save_json(MEALS_FILE, meals)
+    sync_to_cloud('meals', meals)
 
 def load_goals():
     """Load user goals"""
@@ -346,6 +364,7 @@ def load_goals():
 def save_goals(goals):
     """Save user goals"""
     save_json(GOALS_FILE, goals)
+    sync_to_cloud('goals', goals)
 
 def load_weight_log():
     """Load weight tracking log"""
@@ -364,6 +383,7 @@ def save_weight_entry(weight, log_date=None):
     # Sort by date
     weight_log.sort(key=lambda x: x['date'])
     save_json(WEIGHT_FILE, weight_log)
+    sync_to_cloud('weight', weight_log)
 
 def load_water_log():
     """Load water intake log"""
@@ -377,6 +397,45 @@ def save_water_intake(glasses, log_date=None):
     water_log = load_water_log()
     water_log[log_date] = glasses
     save_json(WATER_FILE, water_log)
+    sync_to_cloud('water', water_log)
+
+def load_exercises(date_str=None):
+    """Load exercise log for a specific date or all entries"""
+    exercises = load_json(EXERCISES_FILE, {})
+    if date_str:
+        return exercises.get(date_str, [])
+    return exercises
+
+def save_exercise(exercise_data, exercise_date=None):
+    """Append an exercise entry and sync to cloud"""
+    if exercise_date is None:
+        exercise_date = str(date.today())
+    exercises = load_exercises()
+    if exercise_date not in exercises:
+        exercises[exercise_date] = []
+    exercise_data['timestamp'] = datetime.now().isoformat()
+    exercises[exercise_date].append(exercise_data)
+    save_json(EXERCISES_FILE, exercises)
+    sync_to_cloud('exercises', exercises)
+
+def sync_to_cloud(data_type, data):
+    """Push one data type to Firestore if a user is logged in. Silent on failure."""
+    if not FIREBASE_ENABLED:
+        return
+    user = st.session_state.get('firebase_user')
+    if not user:
+        return
+    try:
+        import firebase_sync
+        firebase_sync.save_user_data(
+            FIREBASE_PROJECT_ID,
+            user['idToken'],
+            user['localId'],
+            data_type,
+            data
+        )
+    except Exception as e:
+        print(f'[Firebase Sync] {data_type} error: {e}')
 
 def get_daily_totals(date_str):
     """Calculate total nutrition for a specific date"""
@@ -1092,21 +1151,28 @@ if 'error' not in st.session_state:
     st.session_state['error'] = None
 if 'current_date' not in st.session_state:
     st.session_state['current_date'] = str(date.today())
+if 'firebase_user' not in st.session_state:
+    st.session_state['firebase_user'] = None
+if 'firebase_data_loaded' not in st.session_state:
+    st.session_state['firebase_data_loaded'] = False
+if 'firebase_last_sync' not in st.session_state:
+    st.session_state['firebase_last_sync'] = None
 
 # App UI
 st.title("🍽️ Food Calorie Analyzer")
 st.markdown('<p class="subtitle">📸 Track your nutrition with AI-powered food analysis!</p>', unsafe_allow_html=True)
 
 # Create tabs for different features
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📸 Analyze Food",
-    "📊 Daily Summary", 
-    "🎯 Goals", 
+    "📊 Daily Summary",
+    "🎯 Goals",
     "📅 History",
     "📈 Progress",
     "⚙️ Quick Add",
     "🏃 Exercise",
-    "📓 Workout Log"
+    "📓 Workout Log",
+    "👤 Account",
 ])
 
 # ==================== TAB 1: ANALYZE FOOD ====================
@@ -1120,6 +1186,7 @@ import tabs.tab_progress as tab_progress
 import tabs.tab_quick_add as tab_quick_add
 import tabs.tab_exercise as tab_exercise
 import tabs.tab_workout_log as tab_workout_log
+import tabs.tab_account as tab_account
 
 with tab1:
     tab_analyze.render(sys.modules[__name__])
@@ -1151,6 +1218,10 @@ with tab7:
 # ==================== TAB 8: WORKOUT LOG ====================
 with tab8:
     tab_workout_log.render(sys.modules[__name__])
+
+# ==================== TAB 9: ACCOUNT ====================
+with tab9:
+    tab_account.render(sys.modules[__name__])
 
 # Footer
 st.markdown("")
