@@ -101,49 +101,124 @@ def _render_notifications(app, user):
             "**Note:** Repeat on every device you want to receive alerts on."
         )
 
-        if st.button("🔔 Enable Notifications on This Device", type="primary",
-                     use_container_width=True, key="notif_enable_btn"):
-            api_key   = app.FIREBASE_API_KEY or ""
-            vapid_key = getattr(app, "FIREBASE_VAPID_KEY", "")
-            sender_id = getattr(app, "FIREBASE_MESSAGING_SENDER_ID", "")
-            app_id    = getattr(app, "FIREBASE_APP_ID", "")
-            project   = "calorie-app-auth-a0cbc"
-            st.markdown(f"""
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+        import streamlit.components.v1 as _components
+        api_key   = app.FIREBASE_API_KEY or ""
+        vapid_key = getattr(app, "FIREBASE_VAPID_KEY", "")
+        sender_id = getattr(app, "FIREBASE_MESSAGING_SENDER_ID", "")
+        app_id    = getattr(app, "FIREBASE_APP_ID", "")
+        project   = "calorie-app-auth-a0cbc"
+
+        _components.html(f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body {{ margin:0; padding:0; font-family: sans-serif; background: transparent; }}
+  #btn {{
+    width: 100%;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }}
+  #btn:disabled {{ opacity: 0.6; cursor: not-allowed; }}
+  #status {{ margin-top: 8px; font-size: 0.9rem; color: #555; text-align: center; }}
+  .err {{ color: #d32f2f !important; }}
+  .ok  {{ color: #2e7d32 !important; }}
+</style>
+</head>
+<body>
+<button id="btn" onclick="enableNotifications()">🔔 Enable Notifications on This Device</button>
+<p id="status"></p>
+
 <script>
-(async function() {{
+async function loadScript(parent, src) {{
+  return new Promise((resolve, reject) => {{
+    const s = parent.document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    parent.document.head.appendChild(s);
+  }});
+}}
+
+async function enableNotifications() {{
+  const btn    = document.getElementById('btn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+
   try {{
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {{
-      alert('Notification permission denied. Please allow it in browser settings and try again.');
+    // 1 ─ Request browser permission (must come from user gesture)
+    status.textContent = 'Requesting notification permission…';
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {{
+      status.textContent = '❌ Permission denied. Please allow notifications in browser settings.';
+      status.className = 'err';
+      btn.disabled = false;
       return;
     }}
-    const reg = await navigator.serviceWorker.register('/app/static/firebase-messaging-sw.js');
-    await navigator.serviceWorker.ready;
-    if (!firebase.apps.length) {{
-      firebase.initializeApp({{
+
+    // 2 ─ Load Firebase SDK into the PARENT window so SW registers at correct scope
+    status.textContent = 'Loading Firebase…';
+    const par = window.parent;
+    if (!par.firebase) {{
+      await loadScript(par, 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+      await loadScript(par, 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+    }}
+
+    // 3 ─ Init Firebase in parent (once)
+    if (!par.firebase.apps.length) {{
+      par.firebase.initializeApp({{
         apiKey: "{api_key}",
         projectId: "{project}",
         messagingSenderId: "{sender_id}",
         appId: "{app_id}"
       }});
     }}
-    const messaging = firebase.messaging();
+
+    // 4 ─ Register service worker in PARENT scope
+    status.textContent = 'Registering service worker…';
+    const swUrl = '/app/static/firebase-messaging-sw.js';
+    const reg   = await par.navigator.serviceWorker.register(swUrl, {{ scope: '/' }});
+    await par.navigator.serviceWorker.ready;
+
+    // 5 ─ Get FCM token
+    status.textContent = 'Getting notification token…';
+    const messaging = par.firebase.messaging();
     const token = await messaging.getToken({{ vapidKey: "{vapid_key}", serviceWorkerRegistration: reg }});
-    if (!token) {{ alert('Could not get notification token. Please try again.'); return; }}
-    const tz = new Date().getTimezoneOffset();
-    const url = new URL(window.location.href);
+    if (!token) {{
+      status.textContent = '❌ Could not get token. Make sure you are on HTTPS and try again.';
+      status.className = 'err';
+      btn.disabled = false;
+      return;
+    }}
+
+    // 6 ─ Pass token back to Streamlit via URL query param
+    status.textContent = '✅ Done! Saving token…';
+    status.className = 'ok';
+    const tz  = new Date().getTimezoneOffset();
+    const url = new URL(par.location.href);
     url.searchParams.set('fcm_token', token);
     url.searchParams.set('tz_offset', tz);
-    window.location.href = url.toString();
+    par.location.href = url.toString();
+
   }} catch(e) {{
     console.error('Notification setup error:', e);
-    alert('Notification setup failed: ' + e.message + '\\nTip: Use Chrome or Edge on Android.');
+    status.textContent = '❌ ' + e.message;
+    status.className = 'err';
+    btn.disabled = false;
   }}
-}})();
+}}
 </script>
-""", unsafe_allow_html=True)
+</body>
+</html>
+""", height=90, scrolling=False)
 
     st.divider()
 

@@ -407,7 +407,8 @@ def _check_calorie_alert(meal_date, meals):
         )
         remaining = goal_cals - today_cals
         if 0 <= remaining <= threshold:
-            st.markdown(f"""
+            import streamlit.components.v1 as _comp
+            _comp.html(f"""
 <script>
 if ('Notification' in window && Notification.permission === 'granted') {{
   new Notification('\ud83d\udd25 Calorie Budget Alert', {{
@@ -416,7 +417,7 @@ if ('Notification' in window && Notification.permission === 'granted') {{
   }});
 }}
 </script>
-""", unsafe_allow_html=True)
+""", height=0, scrolling=False)
     except Exception:
         pass
 
