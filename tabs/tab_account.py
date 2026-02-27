@@ -183,32 +183,26 @@ async function enableNotifications() {{
     }}
 
     // 4 ─ Register service worker from static file
-    //     Requires: enableStaticServing = true in .streamlit/config.toml (already set)
-    //     File: static/firebase-messaging-sw.js served at /app/static/firebase-messaging-sw.js
-    status.textContent = 'Checking service worker file…';
     const swUrl = '/app/static/firebase-messaging-sw.js';
 
-    // Probe the file first to give a clear error if Streamlit hasn't served it yet
-    let probeOk = false;
+    // Quick debug fetch — shows us what Streamlit is actually serving
     try {{
       const probe = await fetch(swUrl);
-      const ct    = probe.headers.get('content-type') || '';
-      probeOk = probe.ok && (ct.includes('javascript') || ct.includes('application/js') || ct.includes('text/plain'));
-      if (!probeOk) {{
-        status.innerHTML = '❌ Service worker file is not ready yet.<br><b>Please go to Streamlit Cloud → Manage app → Reboot app, then try again.</b>';
-        status.className = 'err';
-        btn.disabled = false;
-        return;
-      }}
-    }} catch(fetchErr) {{
-      status.textContent = '❌ Could not reach service worker file: ' + fetchErr.message;
+      const ct = probe.headers.get('content-type') || 'unknown';
+      status.textContent = 'File check: status=' + probe.status + ' type=' + ct + '. Registering SW…';
+    }} catch(e) {{
+      status.textContent = 'Could not fetch SW file: ' + e.message;
+    }}
+
+    let reg;
+    try {{
+      reg = await par.navigator.serviceWorker.register(swUrl, {{ scope: '/app/static/' }});
+    }} catch(swErr) {{
+      status.innerHTML = '❌ SW error: ' + swErr.message;
       status.className = 'err';
       btn.disabled = false;
       return;
     }}
-
-    status.textContent = 'Registering service worker…';
-    const reg = await par.navigator.serviceWorker.register(swUrl, {{ scope: '/app/static/' }});
     await par.navigator.serviceWorker.ready;
 
     // 5 ─ Get FCM token
