@@ -182,10 +182,10 @@ async function enableNotifications() {{
       }});
     }}
 
-    // 4 ─ Register service worker in PARENT scope
+    // 4 ─ Register service worker with correct scope
     status.textContent = 'Registering service worker…';
     const swUrl = '/app/static/firebase-messaging-sw.js';
-    const reg   = await par.navigator.serviceWorker.register(swUrl, {{ scope: '/' }});
+    const reg   = await par.navigator.serviceWorker.register(swUrl, {{ scope: '/app/static/' }});
     await par.navigator.serviceWorker.ready;
 
     // 5 ─ Get FCM token
