@@ -182,49 +182,33 @@ async function enableNotifications() {{
       }});
     }}
 
-    // 4 ─ Register service worker
-    //     First try the static file (persistent = background push works).
-    //     If Streamlit returns HTML instead of JS, fall back to a blob URL
-    //     (works for foreground push and when the PWA is open in background).
-    status.textContent = 'Registering service worker…';
-    const swContent = `
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
-firebase.initializeApp({{
-  apiKey: "{api_key}",
-  projectId: "{project}",
-  messagingSenderId: "{sender_id}",
-  appId: "{app_id}"
-}});
-const messaging = firebase.messaging();
-messaging.onBackgroundMessage(function(payload) {{
-  const title = (payload.notification && payload.notification.title) || 'Food Calorie Analyzer';
-  const opts  = {{
-    body:  (payload.notification && payload.notification.body) || '',
-    icon:  'https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f37d.png',
-    badge: 'https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f37d.png'
-  }};
-  return self.registration.showNotification(title, opts);
-}});
-`;
-    let swUrl;
-    try {{
-      const probe = await fetch('/app/static/firebase-messaging-sw.js');
-      const ct    = probe.headers.get('content-type') || '';
-      if (probe.ok && (ct.includes('javascript') || ct.includes('application/js'))) {{
-        swUrl = '/app/static/firebase-messaging-sw.js';
-        status.textContent = 'Registering service worker (static file)…';
-      }}
-    }} catch (_) {{}}
+    // 4 ─ Register service worker from static file
+    //     Requires: enableStaticServing = true in .streamlit/config.toml (already set)
+    //     File: static/firebase-messaging-sw.js served at /app/static/firebase-messaging-sw.js
+    status.textContent = 'Checking service worker file…';
+    const swUrl = '/app/static/firebase-messaging-sw.js';
 
-    if (!swUrl) {{
-      // Static file not available — use blob (foreground + PWA background)
-      const blob = new par.Blob([swContent], {{ type: 'application/javascript' }});
-      swUrl = par.URL.createObjectURL(blob);
-      status.textContent = 'Registering service worker (inline)…';
+    // Probe the file first to give a clear error if Streamlit hasn't served it yet
+    let probeOk = false;
+    try {{
+      const probe = await fetch(swUrl);
+      const ct    = probe.headers.get('content-type') || '';
+      probeOk = probe.ok && (ct.includes('javascript') || ct.includes('application/js') || ct.includes('text/plain'));
+      if (!probeOk) {{
+        status.innerHTML = '❌ Service worker file is not ready yet.<br><b>Please go to Streamlit Cloud → Manage app → Reboot app, then try again.</b>';
+        status.className = 'err';
+        btn.disabled = false;
+        return;
+      }}
+    }} catch(fetchErr) {{
+      status.textContent = '❌ Could not reach service worker file: ' + fetchErr.message;
+      status.className = 'err';
+      btn.disabled = false;
+      return;
     }}
 
-    const reg = await par.navigator.serviceWorker.register(swUrl);
+    status.textContent = 'Registering service worker…';
+    const reg = await par.navigator.serviceWorker.register(swUrl, {{ scope: '/app/static/' }});
     await par.navigator.serviceWorker.ready;
 
     // 5 ─ Get FCM token
