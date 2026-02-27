@@ -182,10 +182,49 @@ async function enableNotifications() {{
       }});
     }}
 
-    // 4 ─ Register service worker with correct scope
+    // 4 ─ Register service worker
+    //     First try the static file (persistent = background push works).
+    //     If Streamlit returns HTML instead of JS, fall back to a blob URL
+    //     (works for foreground push and when the PWA is open in background).
     status.textContent = 'Registering service worker…';
-    const swUrl = '/app/static/firebase-messaging-sw.js';
-    const reg   = await par.navigator.serviceWorker.register(swUrl, {{ scope: '/app/static/' }});
+    const swContent = `
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+firebase.initializeApp({{
+  apiKey: "{api_key}",
+  projectId: "{project}",
+  messagingSenderId: "{sender_id}",
+  appId: "{app_id}"
+}});
+const messaging = firebase.messaging();
+messaging.onBackgroundMessage(function(payload) {{
+  const title = (payload.notification && payload.notification.title) || 'Food Calorie Analyzer';
+  const opts  = {{
+    body:  (payload.notification && payload.notification.body) || '',
+    icon:  'https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f37d.png',
+    badge: 'https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f37d.png'
+  }};
+  return self.registration.showNotification(title, opts);
+}});
+`;
+    let swUrl;
+    try {{
+      const probe = await fetch('/app/static/firebase-messaging-sw.js');
+      const ct    = probe.headers.get('content-type') || '';
+      if (probe.ok && (ct.includes('javascript') || ct.includes('application/js'))) {{
+        swUrl = '/app/static/firebase-messaging-sw.js';
+        status.textContent = 'Registering service worker (static file)…';
+      }}
+    }} catch (_) {{}}
+
+    if (!swUrl) {{
+      // Static file not available — use blob (foreground + PWA background)
+      const blob = new par.Blob([swContent], {{ type: 'application/javascript' }});
+      swUrl = par.URL.createObjectURL(blob);
+      status.textContent = 'Registering service worker (inline)…';
+    }}
+
+    const reg = await par.navigator.serviceWorker.register(swUrl);
     await par.navigator.serviceWorker.ready;
 
     // 5 ─ Get FCM token
