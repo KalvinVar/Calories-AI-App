@@ -93,7 +93,7 @@ def load_all_user_data(project_id: str, id_token: str, uid: str):
         if resp.status_code == 200:
             fields = resp.json().get("fields", {})
             result = {}
-            for key in ("meals", "goals", "weight", "water", "exercises"):
+            for key in ("meals", "goals", "weight", "water", "exercises", "notifications"):
                 if key in fields:
                     raw = fields[key].get("stringValue", "")
                     try:

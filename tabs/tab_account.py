@@ -41,6 +41,8 @@ def _do_login(app, user_data):
     if cloud_data.get("exercises"):
         app.save_json(app.DATA_DIR / "exercises.json", cloud_data["exercises"])
         any_loaded = True
+    if cloud_data.get("notifications"):
+        st.session_state["notif_prefs"] = cloud_data["notifications"]
 
     st.session_state["firebase_data_loaded"] = True
     st.session_state["firebase_last_sync"] = datetime.now().strftime("%b %d %Y %H:%M")
@@ -49,6 +51,174 @@ def _do_login(app, user_data):
         st.success("✅ Cloud data loaded! Your meals, goals, and progress are synced.")
     else:
         st.info("☁️ No cloud data yet — your new entries will be saved to the cloud automatically.")
+
+
+def _parse_time(val, default_h, default_m):
+    """Parse HH:MM string to datetime.time, with fallback."""
+    import datetime as _dt
+    try:
+        if val:
+            parts = val.split(":")
+            return _dt.time(int(parts[0]), int(parts[1]))
+    except Exception:
+        pass
+    return _dt.time(default_h, default_m)
+
+
+def _render_notifications(app, user):
+    """Push notification settings panel — logged-in users only."""
+    import firebase_sync
+
+    notif_prefs = st.session_state.get("notif_prefs") or {}
+    notif_enabled = bool(notif_prefs.get("fcm_token"))
+
+    # Colourful header banner
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 1rem;">
+        <h3 style="color:white; margin:0 0 0.3rem 0;">🔔 Smart Meal & Workout Reminders</h3>
+        <p style="color:rgba(255,255,255,0.9); margin:0; font-size:0.95rem;">
+            Real push notifications — alerts you even when the app is closed.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Status row
+    if notif_enabled:
+        col_s1, col_s2 = st.columns([4, 1])
+        with col_s1:
+            st.success("✅ Push notifications enabled on this device")
+        with col_s2:
+            if st.button("🔄 Re-register", key="notif_rereg", use_container_width=True):
+                notif_prefs.pop("fcm_token", None)
+                st.session_state["notif_prefs"] = notif_prefs
+                st.rerun()
+    else:
+        st.warning("🔔 Push notifications not yet enabled on this device")
+        st.info(
+            "**Step 1:** Click **Enable Notifications** and allow when your browser asks.  \n"
+            "**Step 2:** Set your reminder times below and click Save.  \n"
+            "**Note:** Repeat on every device you want to receive alerts on."
+        )
+
+        if st.button("🔔 Enable Notifications on This Device", type="primary",
+                     use_container_width=True, key="notif_enable_btn"):
+            api_key   = app.FIREBASE_API_KEY or ""
+            vapid_key = getattr(app, "FIREBASE_VAPID_KEY", "")
+            sender_id = getattr(app, "FIREBASE_MESSAGING_SENDER_ID", "")
+            app_id    = getattr(app, "FIREBASE_APP_ID", "")
+            project   = "calorie-app-auth-a0cbc"
+            st.markdown(f"""
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+<script>
+(async function() {{
+  try {{
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {{
+      alert('Notification permission denied. Please allow it in browser settings and try again.');
+      return;
+    }}
+    const reg = await navigator.serviceWorker.register('/app/static/firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
+    if (!firebase.apps.length) {{
+      firebase.initializeApp({{
+        apiKey: "{api_key}",
+        projectId: "{project}",
+        messagingSenderId: "{sender_id}",
+        appId: "{app_id}"
+      }});
+    }}
+    const messaging = firebase.messaging();
+    const token = await messaging.getToken({{ vapidKey: "{vapid_key}", serviceWorkerRegistration: reg }});
+    if (!token) {{ alert('Could not get notification token. Please try again.'); return; }}
+    const tz = new Date().getTimezoneOffset();
+    const url = new URL(window.location.href);
+    url.searchParams.set('fcm_token', token);
+    url.searchParams.set('tz_offset', tz);
+    window.location.href = url.toString();
+  }} catch(e) {{
+    console.error('Notification setup error:', e);
+    alert('Notification setup failed: ' + e.message + '\\nTip: Use Chrome or Edge on Android.');
+  }}
+}})();
+</script>
+""", unsafe_allow_html=True)
+
+    st.divider()
+
+    # Settings form
+    st.markdown("#### ⚙️ Reminder Schedule")
+    with st.form("notif_settings_form"):
+        st.markdown("**🍽️ Meal Reminders**")
+        mc1, mc2, mc3 = st.columns(3)
+        with mc1:
+            breakfast_on   = st.toggle("🍳 Breakfast",  value=notif_prefs.get("breakfast_enabled", False), key="nf_bf_on")
+            breakfast_time = st.time_input("Time", value=_parse_time(notif_prefs.get("breakfast_time"), 8, 0),  key="nf_bf_t")
+        with mc2:
+            lunch_on   = st.toggle("🥗 Lunch",  value=notif_prefs.get("lunch_enabled", False), key="nf_lu_on")
+            lunch_time = st.time_input("Time", value=_parse_time(notif_prefs.get("lunch_time"),  12, 30), key="nf_lu_t")
+        with mc3:
+            dinner_on   = st.toggle("🍽️ Dinner", value=notif_prefs.get("dinner_enabled", False), key="nf_di_on")
+            dinner_time = st.time_input("Time", value=_parse_time(notif_prefs.get("dinner_time"), 18, 30), key="nf_di_t")
+
+        st.markdown("**💪 Workout Reminder**")
+        wc1, wc2 = st.columns([1, 2])
+        with wc1:
+            workout_on   = st.toggle("💪 Workout", value=notif_prefs.get("workout_enabled", False), key="nf_wo_on")
+            workout_time = st.time_input("Time", value=_parse_time(notif_prefs.get("workout_time"), 7, 0), key="nf_wo_t")
+        with wc2:
+            _all_days     = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+            _saved_days   = [d.capitalize() for d in notif_prefs.get("workout_days", ["monday","wednesday","friday"])]
+            workout_days  = st.multiselect("Days of the week", _all_days, default=_saved_days, key="nf_wo_days")
+
+        st.markdown("**🔥 Calorie Budget Alert**")
+        cal_c1, cal_c2 = st.columns(2)
+        with cal_c1:
+            calorie_alert_on = st.toggle(
+                "Alert when nearly at calorie limit",
+                value=notif_prefs.get("calorie_alert_enabled", False),
+                key="nf_cal_on"
+            )
+        with cal_c2:
+            calorie_remain = st.number_input(
+                "Notify when remaining calories ≤",
+                min_value=50, max_value=1000,
+                value=int(notif_prefs.get("calorie_alert_remaining", 300)),
+                step=50, key="nf_cal_thresh"
+            )
+
+        save_notif = st.form_submit_button(
+            "💾 Save Reminder Settings", type="primary", use_container_width=True
+        )
+
+        if save_notif:
+            new_prefs = {
+                "fcm_token":                notif_prefs.get("fcm_token", ""),
+                "timezone_offset_minutes":  notif_prefs.get("timezone_offset_minutes", 0),
+                "breakfast_enabled":        breakfast_on,
+                "breakfast_time":           breakfast_time.strftime("%H:%M"),
+                "lunch_enabled":            lunch_on,
+                "lunch_time":               lunch_time.strftime("%H:%M"),
+                "dinner_enabled":           dinner_on,
+                "dinner_time":              dinner_time.strftime("%H:%M"),
+                "workout_enabled":          workout_on,
+                "workout_time":             workout_time.strftime("%H:%M"),
+                "workout_days":             [d.lower() for d in workout_days],
+                "calorie_alert_enabled":    calorie_alert_on,
+                "calorie_alert_remaining":  int(calorie_remain),
+            }
+            ok, err = firebase_sync.save_user_data(
+                app.FIREBASE_PROJECT_ID, user["idToken"], user["localId"],
+                "notifications", new_prefs
+            )
+            if ok:
+                st.session_state["notif_prefs"] = new_prefs
+                st.success("✅ Reminder settings saved!")
+                if not notif_enabled:
+                    st.info("💡 Don't forget to click **Enable Notifications** above to activate alerts on this device.")
+            else:
+                st.error(f"Failed to save: {err}")
 
 
 def _show_benefits():
@@ -165,6 +335,20 @@ The Account tab will become fully functional after restart.
     user = st.session_state.get("firebase_user")
 
     if user:
+        # ── Handle FCM token returned via URL query param after JS registration ─
+        _fcm_token = st.query_params.get("fcm_token", "")
+        if _fcm_token:
+            import firebase_sync as _fs
+            _tz = int(st.query_params.get("tz_offset", "0"))
+            _np = st.session_state.get("notif_prefs") or {}
+            _np["fcm_token"] = _fcm_token
+            _np["timezone_offset_minutes"] = _tz
+            _fs.save_user_data(app.FIREBASE_PROJECT_ID, user["idToken"],
+                               user["localId"], "notifications", _np)
+            st.session_state["notif_prefs"] = _np
+            st.query_params.clear()
+            st.rerun()
+
         display_name = user.get("displayName") or user.get("email", "User")
         email = user.get("email", "")
         last_sync = st.session_state.get("firebase_last_sync", "Unknown")
@@ -208,6 +392,11 @@ The Account tab will become fully functional after restart.
                     st.session_state["firebase_last_sync"] = datetime.now().strftime("%b %d %Y %H:%M")
                     st.success("✅ Synced successfully!")
                     st.rerun()
+
+        st.divider()
+
+        # 🔔 Notification Reminders (prominent — logged-in only)
+        _render_notifications(app, user)
 
         st.divider()
 
