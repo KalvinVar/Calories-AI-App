@@ -66,190 +66,95 @@ def _parse_time(val, default_h, default_m):
 
 
 def _render_notifications(app, user):
-    """Push notification settings panel — logged-in users only."""
+    """Notification settings panel — logged-in users only.
+    Uses a JavaScript setInterval in the parent window to fire reminders.
+    No service worker or FCM token required — works whenever Chrome is running.
+    """
     import firebase_sync
+    import streamlit.components.v1 as _components
 
-    notif_prefs = st.session_state.get("notif_prefs") or {}
-    notif_enabled = bool(notif_prefs.get("fcm_token"))
+    notif_prefs  = st.session_state.get("notif_prefs") or {}
+    perm_granted = notif_prefs.get("notif_permission") == "granted"
 
-    # Colourful header banner
+    # ── Header banner ────────────────────────────────────────────────────────
     st.markdown("""
     <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
                 border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 1rem;">
-        <h3 style="color:white; margin:0 0 0.3rem 0;">🔔 Smart Meal & Workout Reminders</h3>
+        <h3 style="color:white; margin:0 0 0.3rem 0;">🔔 Meal & Workout Reminders</h3>
         <p style="color:rgba(255,255,255,0.9); margin:0; font-size:0.95rem;">
-            Real push notifications — alerts you even when the app is closed.
+            Get notified at your chosen times — works on Android PWA and desktop Chrome.
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Status row
-    if notif_enabled:
-        col_s1, col_s2 = st.columns([4, 1])
-        with col_s1:
-            st.success("✅ Push notifications enabled on this device")
-        with col_s2:
-            if st.button("🔄 Re-register", key="notif_rereg", use_container_width=True):
-                notif_prefs.pop("fcm_token", None)
-                st.session_state["notif_prefs"] = notif_prefs
-                st.rerun()
+    # ── Enable / re-enable button ─────────────────────────────────────────────
+    if perm_granted:
+        st.success("✅ Notifications enabled on this device")
+        if st.button("🔄 Re-enable on this device", key="notif_rereg"):
+            notif_prefs["notif_permission"] = ""
+            st.session_state["notif_prefs"] = notif_prefs
+            st.rerun()
     else:
-        st.warning("🔔 Push notifications not yet enabled on this device")
         st.info(
-            "**Step 1:** Click **Enable Notifications** and allow when your browser asks.  \n"
+            "**Step 1:** Click **Enable Notifications** and allow when Chrome asks.  \n"
             "**Step 2:** Set your reminder times below and click Save.  \n"
-            "**Note:** Repeat on every device you want to receive alerts on."
+            "**Note:** Works while Chrome is running (including installed Android PWA)."
         )
-
-        import streamlit.components.v1 as _components
-        api_key   = app.FIREBASE_API_KEY or ""
-        vapid_key = getattr(app, "FIREBASE_VAPID_KEY", "")
-        sender_id = getattr(app, "FIREBASE_MESSAGING_SENDER_ID", "")
-        app_id    = getattr(app, "FIREBASE_APP_ID", "")
-        project   = "calorie-app-auth-a0cbc"
-
-        _components.html(f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
+        _components.html("""
+<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
-  body {{ margin:0; padding:0; font-family: sans-serif; background: transparent; }}
-  #btn {{
-    width: 100%;
-    padding: 0.75rem 1.5rem;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }}
-  #btn:disabled {{ opacity: 0.6; cursor: not-allowed; }}
-  #status {{ margin-top: 8px; font-size: 0.9rem; color: #555; text-align: center; }}
-  .err {{ color: #d32f2f !important; }}
-  .ok  {{ color: #2e7d32 !important; }}
-</style>
-</head>
-<body>
-<button id="btn" onclick="enableNotifications()">🔔 Enable Notifications on This Device</button>
-<p id="status"></p>
-
+  body{margin:0;padding:0;font-family:sans-serif;}
+  #btn{width:100%;padding:.75rem 1.5rem;
+       background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);
+       color:#fff;border:none;border-radius:10px;font-size:1rem;
+       font-weight:600;cursor:pointer;}
+  #btn:disabled{opacity:.6;}
+  #s{margin-top:8px;font-size:.9rem;text-align:center;color:#555;}
+  .err{color:#d32f2f!important;} .ok{color:#2e7d32!important;}
+</style></head><body>
+<button id="btn" onclick="enable()">🔔 Enable Notifications on This Device</button>
+<p id="s"></p>
 <script>
-async function loadScript(parent, src) {{
-  return new Promise((resolve, reject) => {{
-    const s = parent.document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
-    parent.document.head.appendChild(s);
-  }});
-}}
-
-async function enableNotifications() {{
-  const btn    = document.getElementById('btn');
-  const status = document.getElementById('status');
+async function enable() {
+  const btn = document.getElementById('btn');
+  const s   = document.getElementById('s');
   btn.disabled = true;
-
-  try {{
-    // 1 ─ Request browser permission (must come from user gesture)
-    status.textContent = 'Requesting notification permission…';
+  s.textContent = 'Requesting permission…';
+  try {
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') {{
-      status.textContent = '❌ Permission denied. Please allow notifications in browser settings.';
-      status.className = 'err';
-      btn.disabled = false;
-      return;
-    }}
-
-    // 2 ─ Load Firebase SDK into the PARENT window so SW registers at correct scope
-    status.textContent = 'Loading Firebase…';
-    const par = window.parent;
-    if (!par.firebase) {{
-      await loadScript(par, 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-      await loadScript(par, 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
-    }}
-
-    // 3 ─ Init Firebase in parent (once)
-    if (!par.firebase.apps.length) {{
-      par.firebase.initializeApp({{
-        apiKey: "{api_key}",
-        projectId: "{project}",
-        messagingSenderId: "{sender_id}",
-        appId: "{app_id}"
-      }});
-    }}
-
-    // 4 ─ Register service worker from static file
-    const swUrl = '/app/static/firebase-messaging-sw.js';
-
-    // Quick debug fetch — shows us what Streamlit is actually serving
-    try {{
-      const probe = await fetch(swUrl);
-      const ct = probe.headers.get('content-type') || 'unknown';
-      status.textContent = 'File check: status=' + probe.status + ' type=' + ct + '. Registering SW…';
-    }} catch(e) {{
-      status.textContent = 'Could not fetch SW file: ' + e.message;
-    }}
-
-    let reg;
-    try {{
-      reg = await par.navigator.serviceWorker.register(swUrl, {{ scope: '/app/static/' }});
-    }} catch(swErr) {{
-      status.innerHTML = '❌ SW error: ' + swErr.message;
-      status.className = 'err';
-      btn.disabled = false;
-      return;
-    }}
-    await par.navigator.serviceWorker.ready;
-
-    // 5 ─ Get FCM token
-    status.textContent = 'Getting notification token…';
-    const messaging = par.firebase.messaging();
-    const token = await messaging.getToken({{ vapidKey: "{vapid_key}", serviceWorkerRegistration: reg }});
-    if (!token) {{
-      status.textContent = '❌ Could not get token. Make sure you are on HTTPS and try again.';
-      status.className = 'err';
-      btn.disabled = false;
-      return;
-    }}
-
-    // 6 ─ Pass token back to Streamlit via URL query param
-    status.textContent = '✅ Done! Saving token…';
-    status.className = 'ok';
+    if (perm !== 'granted') {
+      s.textContent = '❌ Permission denied. Please allow notifications in Chrome settings.';
+      s.className = 'err'; btn.disabled = false; return;
+    }
+    // Pass result back to Streamlit via URL param
+    s.textContent = '✅ Permission granted! Saving…';
+    s.className = 'ok';
     const tz  = new Date().getTimezoneOffset();
-    const url = new URL(par.location.href);
-    url.searchParams.set('fcm_token', token);
-    url.searchParams.set('tz_offset', tz);
-    par.location.href = url.toString();
-
-  }} catch(e) {{
-    console.error('Notification setup error:', e);
-    status.textContent = '❌ ' + e.message;
-    status.className = 'err';
-    btn.disabled = false;
-  }}
-}}
-</script>
-</body>
-</html>
-""", height=90, scrolling=False)
+    const url = new URL(window.parent.location.href);
+    url.searchParams.set('notif_granted', '1');
+    url.searchParams.set('tz_offset', String(tz));
+    window.parent.location.href = url.toString();
+  } catch(e) {
+    s.textContent = '❌ ' + e.message;
+    s.className = 'err'; btn.disabled = false;
+  }
+}
+</script></body></html>
+""", height=85, scrolling=False)
 
     st.divider()
 
-    # Settings form
+    # ── Settings form ─────────────────────────────────────────────────────────
     st.markdown("#### ⚙️ Reminder Schedule")
     with st.form("notif_settings_form"):
         st.markdown("**🍽️ Meal Reminders**")
         mc1, mc2, mc3 = st.columns(3)
         with mc1:
-            breakfast_on   = st.toggle("🍳 Breakfast",  value=notif_prefs.get("breakfast_enabled", False), key="nf_bf_on")
-            breakfast_time = st.time_input("Time", value=_parse_time(notif_prefs.get("breakfast_time"), 8, 0),  key="nf_bf_t")
+            breakfast_on   = st.toggle("🍳 Breakfast", value=notif_prefs.get("breakfast_enabled", False), key="nf_bf_on")
+            breakfast_time = st.time_input("Time", value=_parse_time(notif_prefs.get("breakfast_time"), 8, 0), key="nf_bf_t")
         with mc2:
-            lunch_on   = st.toggle("🥗 Lunch",  value=notif_prefs.get("lunch_enabled", False), key="nf_lu_on")
-            lunch_time = st.time_input("Time", value=_parse_time(notif_prefs.get("lunch_time"),  12, 30), key="nf_lu_t")
+            lunch_on   = st.toggle("🥗 Lunch", value=notif_prefs.get("lunch_enabled", False), key="nf_lu_on")
+            lunch_time = st.time_input("Time", value=_parse_time(notif_prefs.get("lunch_time"), 12, 30), key="nf_lu_t")
         with mc3:
             dinner_on   = st.toggle("🍽️ Dinner", value=notif_prefs.get("dinner_enabled", False), key="nf_di_on")
             dinner_time = st.time_input("Time", value=_parse_time(notif_prefs.get("dinner_time"), 18, 30), key="nf_di_t")
@@ -260,17 +165,16 @@ async function enableNotifications() {{
             workout_on   = st.toggle("💪 Workout", value=notif_prefs.get("workout_enabled", False), key="nf_wo_on")
             workout_time = st.time_input("Time", value=_parse_time(notif_prefs.get("workout_time"), 7, 0), key="nf_wo_t")
         with wc2:
-            _all_days     = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
-            _saved_days   = [d.capitalize() for d in notif_prefs.get("workout_days", ["monday","wednesday","friday"])]
-            workout_days  = st.multiselect("Days of the week", _all_days, default=_saved_days, key="nf_wo_days")
+            _all_days   = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+            _saved_days = [d.capitalize() for d in notif_prefs.get("workout_days", ["monday","wednesday","friday"])]
+            workout_days = st.multiselect("Days of the week", _all_days, default=_saved_days, key="nf_wo_days")
 
         st.markdown("**🔥 Calorie Budget Alert**")
         cal_c1, cal_c2 = st.columns(2)
         with cal_c1:
             calorie_alert_on = st.toggle(
                 "Alert when nearly at calorie limit",
-                value=notif_prefs.get("calorie_alert_enabled", False),
-                key="nf_cal_on"
+                value=notif_prefs.get("calorie_alert_enabled", False), key="nf_cal_on"
             )
         with cal_c2:
             calorie_remain = st.number_input(
@@ -286,7 +190,7 @@ async function enableNotifications() {{
 
         if save_notif:
             new_prefs = {
-                "fcm_token":                notif_prefs.get("fcm_token", ""),
+                "notif_permission":         notif_prefs.get("notif_permission", ""),
                 "timezone_offset_minutes":  notif_prefs.get("timezone_offset_minutes", 0),
                 "breakfast_enabled":        breakfast_on,
                 "breakfast_time":           breakfast_time.strftime("%H:%M"),
@@ -307,10 +211,59 @@ async function enableNotifications() {{
             if ok:
                 st.session_state["notif_prefs"] = new_prefs
                 st.success("✅ Reminder settings saved!")
-                if not notif_enabled:
+                if not perm_granted:
                     st.info("💡 Don't forget to click **Enable Notifications** above to activate alerts on this device.")
             else:
                 st.error(f"Failed to save: {err}")
+
+    # ── Live reminder interval (injected into parent window) ──────────────────
+    # Runs every 60s to check if a reminder time has been reached.
+    # Guarded by window.__calorieReminderSetup so Streamlit reruns don't multiply it.
+    if perm_granted:
+        import json as _json
+        _prefs_js = _json.dumps(notif_prefs)
+        _components.html(f"""
+<script>
+(function() {{
+  const par = window.parent;
+  // Update stored prefs on every render so time changes take effect immediately
+  par.__calorieNotifPrefs = {_prefs_js};
+
+  if (par.__calorieReminderSetup) return;  // interval already running
+  par.__calorieReminderSetup = true;
+  par.__calorieFiredTimes = {{}};
+
+  par.__calorieReminderInterval = setInterval(function() {{
+    const prefs = par.__calorieNotifPrefs;
+    if (!prefs) return;
+    const now  = new Date();
+    const hhmm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    const day  = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][now.getDay()];
+
+    function tryNotify(key, title, body) {{
+      if (par.__calorieFiredTimes[key] === hhmm) return;  // already fired this minute
+      par.__calorieFiredTimes[key] = hhmm;
+      if (Notification.permission === 'granted') {{
+        new par.Notification(title, {{
+          body: body,
+          icon: 'https://raw.githubusercontent.com/googlefonts/noto-emoji/main/png/128/emoji_u1f37d.png'
+        }});
+      }}
+    }}
+
+    if (prefs.breakfast_enabled && prefs.breakfast_time === hhmm)
+      tryNotify('bf', '🍳 Breakfast Time!', "Don't forget to log your breakfast.");
+    if (prefs.lunch_enabled && prefs.lunch_time === hhmm)
+      tryNotify('lu', '🥗 Lunch Time!', 'Time to log your lunch.');
+    if (prefs.dinner_enabled && prefs.dinner_time === hhmm)
+      tryNotify('di', '🍽️ Dinner Time!', "Don't forget to log your dinner.");
+    if (prefs.workout_enabled && prefs.workout_time === hhmm &&
+        prefs.workout_days && prefs.workout_days.includes(day))
+      tryNotify('wo', '💪 Workout Time!', "Your workout reminder is here. Let's go!");
+  }}, 60000);  // check every 60 seconds
+}})();
+</script>
+""", height=0, scrolling=False)
 
 
 def _show_benefits():
@@ -428,12 +381,12 @@ The Account tab will become fully functional after restart.
 
     if user:
         # ── Handle FCM token returned via URL query param after JS registration ─
-        _fcm_token = st.query_params.get("fcm_token", "")
-        if _fcm_token:
+        # Handle notification permission granted via URL param from JS button
+        if st.query_params.get("notif_granted"):
             import firebase_sync as _fs
             _tz = int(st.query_params.get("tz_offset", "0"))
             _np = st.session_state.get("notif_prefs") or {}
-            _np["fcm_token"] = _fcm_token
+            _np["notif_permission"] = "granted"
             _np["timezone_offset_minutes"] = _tz
             _fs.save_user_data(app.FIREBASE_PROJECT_ID, user["idToken"],
                                user["localId"], "notifications", _np)
