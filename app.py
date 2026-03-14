@@ -540,6 +540,16 @@ def save_meal_image(image_file, meal_id):
     # Resize to save space (max 800px wide)
     max_size = (800, 800)
     img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+    # JPEG does not support alpha/transparency or some palette modes.
+    # Flatten transparent images onto white and convert everything else to RGB.
+    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+        rgba = img.convert("RGBA")
+        background = Image.new("RGB", rgba.size, (255, 255, 255))
+        background.paste(rgba, mask=rgba.split()[-1])
+        img = background
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
     
     # Save as JPEG
     img.save(image_path, "JPEG", quality=85)

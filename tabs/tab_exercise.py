@@ -306,6 +306,9 @@ def render_exercise_logger(app, user_weight):
         )
 
     if use_detailed and is_strength:
+        if 'ex_rest' not in st.session_state:
+            st.session_state['ex_rest'] = 90
+
         # ─── Detailed Mode Inputs ───
         col_sets, col_reps = st.columns(2)
 
@@ -351,7 +354,7 @@ def render_exercise_logger(app, user_weight):
         # Rest between sets
         rest_seconds = st.number_input(
             "Rest between sets (seconds)",
-            min_value=10, max_value=600, value=90, step=15,
+            min_value=10, max_value=600, step=15,
             key="ex_rest",
             help="Average rest time between each set"
         )
@@ -404,6 +407,9 @@ def render_exercise_logger(app, user_weight):
         st.caption(f"📊 **MET comparison:** Simple MET estimate for {duration:.0f} min = **{int(met_calories)} cal** vs Detailed = **{int(calories_burned)} cal**")
 
     else:
+        if 'ex_duration' not in st.session_state:
+            st.session_state['ex_duration'] = 30
+
         # ─── Simple MET Mode ───
         col1, col2 = st.columns(2)
 
@@ -422,7 +428,6 @@ def render_exercise_logger(app, user_weight):
                 "Duration (minutes)",
                 min_value=1,
                 max_value=300,
-                value=30,
                 step=5,
                 key="ex_duration"
             )

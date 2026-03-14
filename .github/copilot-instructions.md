@@ -422,3 +422,114 @@ meal = {
 - API issues: Check terminal for `[USDA]`, `[Barcode]`, `[Object Detected]`, `[USDA Search]` logs
 - UI broken: Check for unclosed `with` blocks or missing containers
 - Streamlit Cloud not updating: "Manage app" → "Reboot app" + Ctrl+Shift+R
+
+---
+
+## Android App (Capacitor WebView Wrapper)
+
+### Overview
+The app is also distributed as a native Android APK built with **Capacitor 6.x** (Ionic), wrapping the Streamlit Cloud URL in a WebView. The source project lives at `E:\3rd qart\capacitor-app\`.
+
+- **Streamlit Cloud URL**: `https://calories-ai-app-4prgdqrcttvf4rddjrtdur.streamlit.app`
+- **App package ID**: `com.calorieai.app`
+- **Output APK**: `E:\3rd qart\CalorieAI-v2.apk`
+- **Test device**: Samsung Galaxy A50, ADB serial `R58N82BJCFR`
+- **ADB path**: `C:\Users\Kalvin\AppData\Local\Android\Sdk\platform-tools\adb.exe`
+
+### Build Environment
+```
+Node.js 22.13.0 / npm 10.9.2
+OpenJDK 21
+Android SDK 34 / Gradle 8.2.1
+Android Studio installed
+```
+
+### Rebuild Steps
+```powershell
+cd "E:\3rd qart\capacitor-app"
+# Edit capacitor.config.json server.url if Streamlit URL changed
+npx cap sync android
+cd android
+.\gradlew assembleDebug
+Copy-Item "app\build\outputs\apk\debug\app-debug.apk" "E:\3rd qart\CalorieAI-v2.apk" -Force
+```
+
+### Working capacitor.config.json
+```json
+{
+  "appId": "com.calorieai.app",
+  "appName": "Calorie AI",
+  "webDir": "www",
+  "server": {
+    "url": "https://calories-ai-app-4prgdqrcttvf4rddjrtdur.streamlit.app",
+    "cleartext": false,
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "backgroundColor": "#FF6B6B",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 0,
+      "backgroundColor": "#FF6B6B",
+      "showSpinner": false
+    }
+  }
+}
+```
+
+### Critical Pitfalls (Android)
+
+1. **`SplashScreen.launchAutoHide: false` permanently blocks WebView rendering**
+   - Symptom: App stuck on white/blank screen, never loads content
+   - Root cause: `cancelDraw SplashScreen$2 isViewVisible: true` fires at 60fps, blocking all WebView frames
+   - **Fix**: Always use `launchAutoHide: true` and `launchShowDuration: 0`
+
+2. **Do NOT override `WebViewClient.shouldOverrideUrlLoading`**
+   - Overriding breaks Capacitor's internal JS bridge and Streamlit's WebSocket connection
+   - Streamlit requires WebSockets — any custom URL interception breaks the app
+   - Let Capacitor handle all navigation; use `allowNavigation: ["*"]` instead
+
+3. **`allowNavigation` must be `["*"]` (not under `server`)**
+   - Streamlit redirects through multiple subdomains
+   - Without `["*"]`, redirects open the system browser instead of staying in WebView
+
+4. **UTF-8 BOM in Java files causes compile error**
+   - Symptom: `illegal character: '\ufeff'` at start of `MainActivity.java`
+   - Cause: PowerShell `Set-Content` adds BOM by default
+   - **Fix**: Write Java files using `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))`
+
+5. **ADB device "unauthorized" after reconnect**
+   - Fix: `adb kill-server; adb start-server` then accept prompt on device
+
+### AndroidManifest.xml Required Attributes
+```xml
+<application
+    android:largeHeap="true"
+    android:hardwareAccelerated="true"
+    ...>
+  <activity
+      android:hardwareAccelerated="true"
+      ...>
+```
+
+### MainActivity.java Pattern
+- Has a timed native red branded overlay (`LinearLayout`) that auto-hides after 3500ms with `AlphaAnimation` fade-out
+- Uses `android.view.animation.AlphaAnimation` (NOT `android.animation.AlphaAnimation`)
+- Does NOT override `WebViewClient` — preserves Capacitor JS bridge
+
+### ADB Debugging
+```powershell
+$adb = "C:\Users\Kalvin\AppData\Local\Android\Sdk\platform-tools\adb.exe"
+# List devices
+& $adb devices
+# Full logcat filtered to app package
+& $adb -s R58N82BJCFR logcat | Select-String "calorieai|capacitor|WebView"
+# Process-specific (get PID first from logcat output)
+& $adb -s R58N82BJCFR logcat --pid=<PID>
+# Chrome remote inspect: chrome://inspect/#devices
+```
