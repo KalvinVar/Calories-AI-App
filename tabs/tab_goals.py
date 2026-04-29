@@ -247,46 +247,46 @@ def render(app):
         "Daily calorie target (kcal)",
         min_value=1000,
         max_value=5000,
-        value=current_goals['calories'],
+        value=max(1000, min(5000, int(current_goals['calories']))),
         step=50
     )
-    
+
     st.markdown("### Macronutrient Goals")
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         protein_goal = st.number_input(
             "💪 Protein (g)",
             min_value=30,
             max_value=300,
-            value=current_goals['protein'],
+            value=max(30, min(300, int(current_goals['protein']))),
             step=5
         )
-    
+
     with col2:
         carbs_goal = st.number_input(
             "🍞 Carbs/Sugar (g)",
             min_value=50,
             max_value=500,
-            value=current_goals['carbs'],
+            value=max(50, min(500, int(current_goals['carbs']))),
             step=10
         )
-    
+
     with col3:
         fat_goal = st.number_input(
             "🥑 Fat (g)",
             min_value=20,
             max_value=200,
-            value=current_goals['fat'],
+            value=max(20, min(200, int(current_goals['fat']))),
             step=5
         )
-    
+
     st.markdown("### Hydration Goal")
     water_goal = st.number_input(
         "💧 Water glasses per day",
         min_value=4,
-        max_value=15,
-        value=current_goals['water_glasses'],
+        max_value=25,
+        value=max(4, min(25, int(current_goals['water_glasses']))),
         step=1
     )
     
