@@ -220,8 +220,12 @@ def render(app):
     
     if recent_foods:
         for food in recent_foods:
-            meal_key = food['meal'].get('id', f"recent_{food['name'][:20]}_{hash(food['name']) % 10000}")
-            if st.button(f"➕ {food['name']}", key=f"recent_{meal_key}", use_container_width=True):
+            # Use the meal id if present; otherwise derive a stable key from the name
+            # (avoid hash() — it's session-randomized in Python 3.3+ and causes
+            # DuplicateWidgetID errors if the same food appears more than once)
+            raw_key = food['meal'].get('id') or food['name']
+            safe_key = "".join(c if c.isalnum() else "_" for c in raw_key)[:40]
+            if st.button(f"➕ {food['name']}", key=f"recent_{safe_key}", use_container_width=True):
                 # Quick add recent food
                 meal_id = datetime.now().strftime("%Y%m%d_%H%M%S")
                 meal_data = food['meal'].copy()

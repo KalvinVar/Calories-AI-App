@@ -79,33 +79,33 @@ def render(app):
                                 if st.button(f"🗑️ Delete", key=f"delete_meal_{date_str}_{meal_type_name}_{idx}", type="secondary", use_container_width=True):
                                     # Load all meals
                                     all_meals = app.load_meals()
-                                    # Remove this specific meal by index match
                                     if date_str in all_meals:
                                         meals_list = all_meals[date_str]
-                                        # Find by id if available, otherwise by index
-                                        meal_id = meal.get('id', None)
                                         removed = False
+                                        # Try match by id first
+                                        meal_id = meal.get('id')
                                         if meal_id:
                                             for i, m in enumerate(meals_list):
                                                 if m.get('id') == meal_id:
                                                     meals_list.pop(i)
                                                     removed = True
                                                     break
+                                        # Fallback: match by food_name + timestamp
                                         if not removed:
-                                            # Fallback: remove by matching food_name and timestamp
                                             for i, m in enumerate(meals_list):
                                                 if m.get('food_name') == meal.get('food_name') and m.get('timestamp') == meal.get('timestamp'):
                                                     meals_list.pop(i)
                                                     removed = True
                                                     break
-                                        if not removed and idx < len(meals_list):
-                                            meals_list.pop(idx)
-                                        # If no meals left for this date, remove the date entry
-                                        if len(meals_list) == 0:
-                                            del all_meals[date_str]
-                                        app.save_json(app.MEALS_FILE, all_meals)
-                                        st.success(f"✅ Deleted: {meal['food_name']}")
-                                        st.rerun()
+                                        if removed:
+                                            if len(meals_list) == 0:
+                                                del all_meals[date_str]
+                                            app.save_json(app.MEALS_FILE, all_meals)
+                                            app.sync_to_cloud('meals', all_meals)
+                                            st.success(f"✅ Deleted: {meal['food_name']}")
+                                            st.rerun()
+                                        else:
+                                            st.error("Could not identify that meal entry. Try refreshing.")
                             
                             st.caption(f"Portion: {meal.get('portion_text', 'N/A')}")
                             
@@ -136,6 +136,7 @@ def render(app):
                 if date_str in all_meals:
                     del all_meals[date_str]
                     app.save_json(app.MEALS_FILE, all_meals)
+                    app.sync_to_cloud('meals', all_meals)
                     st.success(f"✅ All meals from {selected_date.strftime('%B %d, %Y')} deleted!")
                     st.rerun()
     else:
@@ -166,9 +167,10 @@ def render(app):
                     del all_meals[date_str_loop]
                     deleted_count += 1
                 current += timedelta(days=1)
-            
+
             if deleted_count > 0:
                 app.save_json(app.MEALS_FILE, all_meals)
+                app.sync_to_cloud('meals', all_meals)
                 st.success(f"✅ Deleted meals from {deleted_count} day(s)!")
                 st.rerun()
             else:
@@ -184,12 +186,13 @@ def render(app):
         
         if confirm_clear:
             if st.button("💣 Delete Everything", key="delete_all", type="primary"):
-                # Clear all data files
                 app.save_json(app.MEALS_FILE, {})
                 app.save_json(app.WATER_FILE, {})
-                # Optionally clear weight log
+                app.sync_to_cloud('meals', {})
+                app.sync_to_cloud('water', {})
                 if clear_weight:
                     app.save_json(app.WEIGHT_FILE, [])
+                    app.sync_to_cloud('weight', [])
                 st.success("✅ All data cleared!")
                 st.rerun()
     

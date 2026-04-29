@@ -68,14 +68,14 @@ def render(app):
     st.markdown("### 💧 Water Intake")
     water_log = app.load_water_log()
     current_water = water_log.get(today, 0)
-    current_water = int(max(0, min(20, current_water)))  # Clamp to valid range and ensure int
+    current_water = int(max(0, min(25, current_water)))  # Clamp to valid range and ensure int
     
     col1, col2 = st.columns([3, 1])
     with col1:
         water_glasses = st.number_input(
             f"Glasses today ({current_water}/{goals['water_glasses']})",
             min_value=0,
-            max_value=20,
+            max_value=25,
             value=current_water,
             step=1,
             label_visibility="collapsed"

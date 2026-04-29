@@ -216,12 +216,19 @@ def render_day_view(exercises, day_str, app):
         with col_cal:
             st.caption(f"🔥 {int(calories)} cal")
         with col_del:
-            if st.button("🗑️", key=f"del_ex_{day_str}_{idx}"):
-                exercises[day_str].pop(idx)
-                if not exercises[day_str]:
-                    del exercises[day_str]
-                app.save_json(app.DATA_DIR / "exercises.json", exercises)
-                st.rerun()
+            confirm_key = f"confirm_del_ex_{day_str}_{idx}"
+            if st.session_state.get(confirm_key):
+                if st.button("✅", key=f"del_ex_confirm_{day_str}_{idx}", help="Click again to confirm delete"):
+                    exercises[day_str].pop(idx)
+                    if not exercises[day_str]:
+                        del exercises[day_str]
+                    app.save_json(app.DATA_DIR / "exercises.json", exercises)
+                    st.session_state.pop(confirm_key, None)
+                    st.rerun()
+            else:
+                if st.button("🗑️", key=f"del_ex_{day_str}_{idx}", help="Click to delete (will ask to confirm)"):
+                    st.session_state[confirm_key] = True
+                    st.rerun()
     
     st.divider()
     

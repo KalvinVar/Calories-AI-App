@@ -24,20 +24,23 @@ def render(app):
     
     # Get last logged weight as default
     weight_log = app.load_weight_log()
-    if len(weight_log) > 0:
-        last_weight = weight_log[-1].get('weight', 150.0)
-    else:
-        last_weight = 150.0 if weight_unit == "lbs" else 68.0
-    
-    # Convert last weight if switching units (stored values are in the unit they were logged in)
+
     if weight_unit == "kg":
-        default_weight = last_weight if last_weight < 200 else round(last_weight * 0.453592, 1)
         min_val, max_val, step_val = 20.0, 250.0, 0.1
+        fallback = 68.0
     else:
-        default_weight = last_weight if last_weight > 50 else round(last_weight * 2.20462, 1)
         min_val, max_val, step_val = 50.0, 500.0, 0.1
-    
-    default_weight = max(min_val, min(max_val, default_weight))
+        fallback = 150.0
+
+    if len(weight_log) > 0:
+        last_weight = weight_log[-1].get('weight', fallback)
+    else:
+        last_weight = fallback
+
+    # Clamp to the valid range for the selected unit without guessing conversions.
+    # Weight entries don't store a unit, so we show the raw stored value and let
+    # the user correct it if they previously logged in the other unit.
+    default_weight = max(min_val, min(max_val, float(last_weight)))
     
     weight_col1, weight_col2, weight_col3 = st.columns([2, 2, 1])
     

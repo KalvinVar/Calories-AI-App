@@ -3,6 +3,7 @@ Tab 1: Analyze Food
 Food photo analysis and barcode scanning
 """
 import streamlit as st
+import io
 from datetime import datetime
 from PIL import Image
 
@@ -71,13 +72,19 @@ def render(app):
             key="food_upload"
         )
         
-        # Clear old analysis/custom foods when new file is uploaded
         if uploaded_file is not None:
+            # New file — save bytes and reset analysis
             if 'last_uploaded_file' not in st.session_state or st.session_state['last_uploaded_file'] != uploaded_file.name:
                 st.session_state['last_uploaded_file'] = uploaded_file.name
+                st.session_state['uploaded_file_bytes'] = uploaded_file.getvalue()
                 st.session_state['analysis'] = None
                 st.session_state['custom_foods'] = []
                 st.session_state['selected_items'] = {}
+            elif 'uploaded_file_bytes' not in st.session_state:
+                st.session_state['uploaded_file_bytes'] = uploaded_file.getvalue()
+        elif 'uploaded_file_bytes' in st.session_state and st.session_state['uploaded_file_bytes'] is not None:
+            # Restore from cache after tab switch (file_uploader resets on reruns)
+            uploaded_file = io.BytesIO(st.session_state['uploaded_file_bytes'])
                 
     else:  # Barcode mode
         st.markdown("### 📷 Upload Barcode Image")
@@ -599,6 +606,18 @@ Nutritional Facts:
             st.subheader("Your Food")
             try:
                 image = Image.open(uploaded_file)
+                # Cap oversized images before Vision API / memory processing
+                if image.width > 4000 or image.height > 4000:
+                    image.thumbnail((4000, 4000), Image.Resampling.LANCZOS)
+                    buf = io.BytesIO()
+                    fmt = 'JPEG' if image.mode == 'RGB' else 'PNG'
+                    if image.mode not in ('RGB', 'RGBA'):
+                        image = image.convert('RGB')
+                        fmt = 'JPEG'
+                    image.save(buf, format=fmt)
+                    buf.seek(0)
+                    st.session_state['uploaded_file_bytes'] = buf.getvalue()
+                    uploaded_file = buf
                 st.image(image, use_container_width=True)
             except Exception as e:
                 st.error(f"Error loading image: {e}")
@@ -802,6 +821,8 @@ Nutritional Facts:
                 
                 # Process each selected food
                 for idx, food_item in enumerate(selected_foods):
+                    portion_text = "1 serving"
+                    portion_multiplier = 1.0
                     # Show in expander only for multi-item mode
                     if combine_mode and len(selected_foods) > 1:
                         expander_label = f"🍽️ {food_item}"
@@ -815,7 +836,9 @@ Nutritional Facts:
                         # Get nutrition for this item
                         item_alternatives = [f for f in selected_foods if f != food_item]
                         item_nutrition = app.get_nutrition_estimate(food_item, item_alternatives)
-                        
+                        if item_nutrition is None:
+                            item_nutrition = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0, 'fiber': 0, 'sugar': 0, 'source': 'Estimate'}
+
                         # Detect category for smart serving
                         food_category = app.detect_food_category(food_item)
                         conversion = app.get_serving_conversion(food_category)
@@ -1283,8 +1306,10 @@ USDA nutrition data is standardized per **100 grams** (about 3.5 oz).
                             app.save_meal(meal_data)
                             st.success(f"✅ Meal saved to {meal_type} log!")
                             st.balloons()
-                            
-                            # Clear selection for next meal
+
+                            # Clear state to prevent double-save on rapid re-clicks
+                            st.session_state['analysis'] = None
+                            st.session_state['uploaded_file_bytes'] = None
                             st.session_state['selected_items'] = {}
                             st.session_state['custom_foods'] = []
                     

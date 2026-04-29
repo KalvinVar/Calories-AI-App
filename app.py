@@ -360,14 +360,20 @@ def load_json(file_path, default=None):
         try:
             with open(file_path, 'r') as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError, OSError):
+        except json.JSONDecodeError:
+            st.warning(f"⚠️ Data file **{file_path.name}** was corrupted and has been reset. You may need to re-enter data for this category.")
+            return default
+        except (IOError, OSError):
             return default
     return default
 
 def save_json(file_path, data):
     """Save data to JSON file"""
-    with open(file_path, 'w') as f:
-        json.dump(data, f, indent=2)
+    try:
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=2)
+    except (IOError, OSError) as e:
+        st.warning(f"⚠️ Could not save data to **{file_path.name}**: {e}")
 
 def load_meals(date_str=None):
     """Load meals for a specific date or all meals"""
@@ -490,7 +496,7 @@ def save_exercise(exercise_data, exercise_date=None):
     sync_to_cloud('exercises', exercises)
 
 def sync_to_cloud(data_type, data):
-    """Push one data type to Firestore if a user is logged in. Silent on failure."""
+    """Push one data type to Firestore if a user is logged in. Refreshes token on expiry."""
     if not FIREBASE_ENABLED:
         return
     user = st.session_state.get('firebase_user')
@@ -498,13 +504,32 @@ def sync_to_cloud(data_type, data):
         return
     try:
         import firebase_sync
-        firebase_sync.save_user_data(
+        import firebase_auth
+        success, error = firebase_sync.save_user_data(
             FIREBASE_PROJECT_ID,
             user['idToken'],
             user['localId'],
             data_type,
             data
         )
+        if not success and error and any(k in str(error).upper() for k in ('UNAUTHENTICATED', 'EXPIRED', 'INVALID_ID_TOKEN')):
+            new_token, new_refresh, err = firebase_auth.refresh_id_token(
+                FIREBASE_API_KEY, user.get('refreshToken', '')
+            )
+            if new_token:
+                st.session_state['firebase_user']['idToken'] = new_token
+                if new_refresh:
+                    st.session_state['firebase_user']['refreshToken'] = new_refresh
+                firebase_sync.save_user_data(
+                    FIREBASE_PROJECT_ID,
+                    new_token,
+                    user['localId'],
+                    data_type,
+                    data
+                )
+            else:
+                print(f'[Firebase Sync] Token refresh failed: {err}')
+                st.toast("⚠️ Cloud sync failed — your data is saved locally.", icon="⚠️")
     except Exception as e:
         print(f'[Firebase Sync] {data_type} error: {e}')
 
@@ -560,14 +585,24 @@ def validate_ean13_checksum(barcode):
     """Validate EAN13 barcode checksum to ensure it's correctly read"""
     if len(barcode) != 13 or not barcode.isdigit():
         return False
-    
+
     # EAN13 checksum: alternating multiply by 1 and 3, sum, then check last digit
     odd_sum = sum(int(barcode[i]) for i in range(0, 12, 2))
     even_sum = sum(int(barcode[i]) for i in range(1, 12, 2))
     total = odd_sum + (even_sum * 3)
     checksum = (10 - (total % 10)) % 10
-    
+
     return checksum == int(barcode[12])
+
+def validate_ean8_checksum(barcode):
+    """Validate EAN-8 barcode checksum (same algorithm as EAN-13 but 8 digits)"""
+    if len(barcode) != 8 or not barcode.isdigit():
+        return False
+    odd_sum = sum(int(barcode[i]) for i in range(0, 7, 2))
+    even_sum = sum(int(barcode[i]) for i in range(1, 7, 2))
+    total = (odd_sum * 3) + even_sum
+    checksum = (10 - (total % 10)) % 10
+    return checksum == int(barcode[7])
 
 def _preprocess_barcode_variants(img):
     """Generate preprocessed image variants for better barcode detection on low-quality images"""
@@ -694,9 +729,9 @@ def _try_vision_api_barcode(image_file):
             if re.match(r'^\d{12}$', desc):
                 print(f"[Barcode] Vision API found UPC-A: {desc}")
                 return desc, 'UPCA'
-            # EAN-8: 8 digits
-            if re.match(r'^\d{8}$', desc):
-                print(f"[Barcode] Vision API found EAN-8: {desc}")
+            # EAN-8: 8 digits with checksum validation
+            if re.match(r'^\d{8}$', desc) and validate_ean8_checksum(desc):
+                print(f"[Barcode] Vision API found valid EAN-8: {desc}")
                 return desc, 'EAN8'
         
         # Try extracting digit sequences from full text block
@@ -712,12 +747,12 @@ def _try_vision_api_barcode(image_file):
                     print(f"[Barcode] Vision API extracted UPC-A: {seq}")
                     return seq, 'UPCA'
             
-            # Also try 8-digit sequences for EAN-8
-            ean8_sequences = re.findall(r'(\d{8})', full_text)
+            # Also try 8-digit sequences for EAN-8 (use word-boundary lookaround to avoid
+            # matching substrings of longer digit runs like phone numbers or dates)
+            ean8_sequences = re.findall(r'(?<!\d)(\d{8})(?!\d)', full_text)
             for seq in ean8_sequences:
-                # Avoid matching substrings of longer numbers already tried
-                if seq not in full_text.replace(seq, "", 1):
-                    print(f"[Barcode] Vision API extracted EAN-8: {seq}")
+                if validate_ean8_checksum(seq):
+                    print(f"[Barcode] Vision API extracted valid EAN-8: {seq}")
                     return seq, 'EAN8'
         
         print("[Barcode] Vision API: no valid barcode numbers found in text")
@@ -1019,7 +1054,8 @@ def get_usda_nutrition(food_name):
             
             if response.status_code == 429:
                 print(f"[USDA] Rate limit hit for '{search_term}'")
-                continue
+                st.toast("⚠️ USDA nutrition database rate limit reached. Showing estimated data.", icon="⚠️")
+                break  # No point retrying other terms — we're rate-limited
             elif response.status_code != 200:
                 print(f"[USDA] Error {response.status_code} for '{search_term}'")
                 continue
@@ -1154,18 +1190,23 @@ def analyze_food_image(image_file):
         
         # Detect labels (objects/food items)
         response = vision_client.label_detection(image=image)
-        labels = response.label_annotations
-        
-        # NEW: Detect objects with localization for better multi-item detection
-        objects_response = vision_client.object_localization(image=image)
-        objects = objects_response.localized_object_annotations
-        
-        # Detect web entities for more context
-        web_response = vision_client.web_detection(image=image)
-        web_entities = web_response.web_detection.web_entities
-        
         if response.error.message:
             raise Exception(response.error.message)
+        labels = response.label_annotations
+
+        # Detect objects with localization for better multi-item detection
+        objects_response = vision_client.object_localization(image=image)
+        if objects_response.error.message:
+            objects = []
+        else:
+            objects = objects_response.localized_object_annotations
+
+        # Detect web entities for more context
+        web_response = vision_client.web_detection(image=image)
+        if web_response.error.message:
+            web_entities = []
+        else:
+            web_entities = web_response.web_detection.web_entities
         
         # Combine all detection sources, prioritizing AI food classifier
         food_items = []
