@@ -134,7 +134,7 @@ def render(app):
                 bmr = (10 * weight_kg) + (6.25 * height_cm) - (5 * age) + 5
             else:
                 bmr = (10 * weight_kg) + (6.25 * height_cm) - (5 * age) - 161
-            
+
             # Activity multipliers
             activity_multipliers = {
                 "Sedentary (little/no exercise)": 1.2,
@@ -143,83 +143,85 @@ def render(app):
                 "Very Active (6-7 days/week)": 1.725,
                 "Extremely Active (athlete/physical job)": 1.9
             }
-            
+
             tdee = bmr * activity_multipliers[activity_level]
-            
+
             # Calculate based on goal and target weight
+            _already_at_target = False
             if goal_type == "Maintain Weight":
                 target_calories = tdee
                 timeline_text = ""
             else:
                 # Calculate weight difference
                 weight_diff_kg = abs(target_weight_kg - weight_kg)
-                
+
                 # Handle already at target weight
                 if weight_diff_kg < 0.1:
                     st.info("✅ You're already at your target weight! Consider switching to **Maintain Weight** mode.")
-                    st.stop()
-                
+                    _already_at_target = True
+
+            if not _already_at_target:
                 # Use user-selected pace (0.5-1.0 kg/week)
                 # 1kg fat = ~7700 calories, so daily adjustment = (weekly_rate * 7700) / 7
                 weekly_rate = pace
                 daily_cal_adjustment = int((weekly_rate * 7700) / 7)
-                
+
                 if goal_type == "Lose Weight":
                     target_calories = tdee - daily_cal_adjustment
                     # Don't go below 1200 cal for women, 1500 for men
                     min_calories = 1500 if gender == "Male" else 1200
                     if target_calories < min_calories:
                         target_calories = min_calories
-                        # Recalculate actual rate based on safe minimum
                         actual_daily_deficit = tdee - min_calories
-                        weekly_rate = max(0.01, (actual_daily_deficit * 7) / 7700)  # Guard against negative/zero
+                        weekly_rate = max(0.01, (actual_daily_deficit * 7) / 7700)
                         st.warning(f"⚠️ Adjusted to safe minimum ({min_calories} cal/day). Actual rate: ~{weekly_rate:.2f} kg/week")
-                else:  # Gain Weight
+                elif goal_type != "Maintain Weight":  # Gain Weight
                     target_calories = tdee + daily_cal_adjustment
-                
+
                 # Calculate timeline
-                weeks_needed = weight_diff_kg / weekly_rate if weekly_rate > 0 else 0
-                estimated_date = date.today() + timedelta(weeks=int(weeks_needed))
-                
-                if weight_unit == "lbs":
-                    weight_diff_display = weight_diff_kg * 2.20462
-                    rate_display = weekly_rate * 2.20462
-                    timeline_text = f"📅 **Timeline:** {int(weeks_needed)} weeks (~{weight_diff_display:.1f} lbs at {rate_display:.1f} lbs/week) → **{estimated_date.strftime('%B %d, %Y')}**"
-                else:
-                    timeline_text = f"📅 **Timeline:** {int(weeks_needed)} weeks (~{weight_diff_kg:.1f} kg at {weekly_rate:.1f} kg/week) → **{estimated_date.strftime('%B %d, %Y')}**"
-            
-            # Calculate macros (40% carbs, 30% protein, 30% fat - balanced approach)
-            protein_grams = int((target_calories * 0.30) / 4)  # 4 cal per gram
-            carbs_grams = int((target_calories * 0.40) / 4)
-            fat_grams = int((target_calories * 0.30) / 9)  # 9 cal per gram
-            
-            st.success("📊 **Recommended Daily Targets:**")
-            
-            rec_col1, rec_col2, rec_col3, rec_col4 = st.columns(4)
-            with rec_col1:
-                st.metric("Calories", f"{int(target_calories)} kcal")
-            with rec_col2:
-                st.metric("Protein", f"{protein_grams}g")
-            with rec_col3:
-                st.metric("Carbs/Sugar", f"{carbs_grams}g")
-            with rec_col4:
-                st.metric("Fat", f"{fat_grams}g")
-            
-            st.info(f"💡 **Your BMR:** {int(bmr)} kcal/day | **TDEE:** {int(tdee)} kcal/day")
-            
-            if timeline_text:
-                st.warning(timeline_text)
-            
-            st.caption("📝 **Note:** These are estimates based on scientific formulas. Adjust based on your progress and how you feel. Consult a healthcare professional for personalized advice.")
-            st.caption("⚠️ **Safe weight loss/gain:** 0.5-1kg (1-2 lbs) per week is recommended. Faster changes may not be sustainable or healthy.")
-            
-            # Store calculated values in session state
-            st.session_state['calculated_goals'] = {
-                'calories': int(target_calories),
-                'protein': protein_grams,
-                'carbs': carbs_grams,
-                'fat': fat_grams
-            }
+                if goal_type != "Maintain Weight":
+                    weeks_needed = weight_diff_kg / weekly_rate if weekly_rate > 0 else 0
+                    estimated_date = date.today() + timedelta(weeks=int(weeks_needed))
+
+                    if weight_unit == "lbs":
+                        weight_diff_display = weight_diff_kg * 2.20462
+                        rate_display = weekly_rate * 2.20462
+                        timeline_text = f"📅 **Timeline:** {int(weeks_needed)} weeks (~{weight_diff_display:.1f} lbs at {rate_display:.1f} lbs/week) → **{estimated_date.strftime('%B %d, %Y')}**"
+                    else:
+                        timeline_text = f"📅 **Timeline:** {int(weeks_needed)} weeks (~{weight_diff_kg:.1f} kg at {weekly_rate:.1f} kg/week) → **{estimated_date.strftime('%B %d, %Y')}**"
+
+                # Calculate macros (40% carbs, 30% protein, 30% fat)
+                protein_grams = int((target_calories * 0.30) / 4)
+                carbs_grams = int((target_calories * 0.40) / 4)
+                fat_grams = int((target_calories * 0.30) / 9)
+
+                st.success("📊 **Recommended Daily Targets:**")
+
+                rec_col1, rec_col2, rec_col3, rec_col4 = st.columns(4)
+                with rec_col1:
+                    st.metric("Calories", f"{int(target_calories)} kcal")
+                with rec_col2:
+                    st.metric("Protein", f"{protein_grams}g")
+                with rec_col3:
+                    st.metric("Carbs/Sugar", f"{carbs_grams}g")
+                with rec_col4:
+                    st.metric("Fat", f"{fat_grams}g")
+
+                st.info(f"💡 **Your BMR:** {int(bmr)} kcal/day | **TDEE:** {int(tdee)} kcal/day")
+
+                if timeline_text:
+                    st.warning(timeline_text)
+
+                st.caption("📝 **Note:** These are estimates based on scientific formulas. Adjust based on your progress and how you feel. Consult a healthcare professional for personalized advice.")
+                st.caption("⚠️ **Safe weight loss/gain:** 0.5-1kg (1-2 lbs) per week is recommended. Faster changes may not be sustainable or healthy.")
+
+                # Store calculated values in session state
+                st.session_state['calculated_goals'] = {
+                    'calories': int(target_calories),
+                    'protein': protein_grams,
+                    'carbs': carbs_grams,
+                    'fat': fat_grams
+                }
         
         # Show apply button if calculations exist (outside the Calculate button block)
         if 'calculated_goals' in st.session_state and st.session_state['calculated_goals']:
@@ -258,8 +260,8 @@ def render(app):
         protein_goal = st.number_input(
             "💪 Protein (g)",
             min_value=30,
-            max_value=300,
-            value=max(30, min(300, int(current_goals['protein']))),
+            max_value=500,
+            value=max(30, min(500, int(current_goals['protein']))),
             step=5
         )
 
@@ -267,8 +269,8 @@ def render(app):
         carbs_goal = st.number_input(
             "🍞 Carbs/Sugar (g)",
             min_value=50,
-            max_value=500,
-            value=max(50, min(500, int(current_goals['carbs']))),
+            max_value=700,
+            value=max(50, min(700, int(current_goals['carbs']))),
             step=10
         )
 
@@ -276,8 +278,8 @@ def render(app):
         fat_goal = st.number_input(
             "🥑 Fat (g)",
             min_value=20,
-            max_value=200,
-            value=max(20, min(200, int(current_goals['fat']))),
+            max_value=300,
+            value=max(20, min(300, int(current_goals['fat']))),
             step=5
         )
 

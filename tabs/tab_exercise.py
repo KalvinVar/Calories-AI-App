@@ -744,6 +744,7 @@ Knowing that your workout burned roughly 200–250 calories is far more valuable
                 exercises[today] = []
             exercises[today].append(exercise_entry)
             app.save_json(app.DATA_DIR / "exercises.json", exercises)
+            app.sync_to_cloud('exercises', exercises)
 
             mode_label = " (Detailed)" if detailed_result else ""
             st.success(f"✅ Logged{mode_label}: {exercise_data['icon']} {exercise_name} — {int(calories_burned)} cal burned!")
@@ -897,7 +898,8 @@ def render_workout_planner(app, user_weight):
                     exercises[today].append(exercise_entry)
                 
                 app.save_json(app.DATA_DIR / "exercises.json", exercises)
-                
+                app.sync_to_cloud('exercises', exercises)
+
                 st.success(f"✅ Workout logged! {len(st.session_state['workout_plan'])} exercises — {int(total_calories)} cal burned!")
                 st.balloons()
                 st.session_state['workout_plan'] = []

@@ -223,6 +223,7 @@ def render_day_view(exercises, day_str, app):
                     if not exercises[day_str]:
                         del exercises[day_str]
                     app.save_json(app.DATA_DIR / "exercises.json", exercises)
+                    app.sync_to_cloud('exercises', exercises)
                     st.session_state.pop(confirm_key, None)
                     st.rerun()
             else:
@@ -395,6 +396,7 @@ def render_all_time_view(exercises, app):
                     if st.button("✅ Yes, delete", key=f"yes_del_{day_str}", type="primary"):
                         del exercises[day_str]
                         app.save_json(app.DATA_DIR / "exercises.json", exercises)
+                        app.sync_to_cloud('exercises', exercises)
                         st.session_state[confirm_key] = False
                         st.rerun()
                 with confirm_col2:

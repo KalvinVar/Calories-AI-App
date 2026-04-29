@@ -657,10 +657,12 @@ Nutritional Facts:
                     # Show option to combine multiple items
                     st.markdown(f"**{len(data['other_items']) + 1} items detected**")
                     
-                    # Checkbox to enable multi-item meal mode
+                    # Checkbox to enable multi-item meal mode (persisted so tab switch doesn't reset it)
+                    if 'combine_mode' not in st.session_state:
+                        st.session_state['combine_mode'] = False
                     combine_mode = st.checkbox(
                         "🍽️ Combine multiple items into one meal",
-                        value=False,
+                        key="combine_mode",
                         help="Check this to select and combine multiple detected foods into a single meal entry"
                     )
                     

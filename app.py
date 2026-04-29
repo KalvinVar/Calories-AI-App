@@ -38,7 +38,9 @@ try:
     credentials = service_account.Credentials.from_service_account_info(google_creds)
     vision_client = vision.ImageAnnotatorClient(credentials=credentials)
     print("[DEBUG] Successfully loaded Streamlit Cloud secrets")
-    st.toast("✅ Using Cloud Secrets", icon="☁️")
+    if not st.session_state.get('_cred_toast_shown'):
+        st.toast("✅ Using Cloud Secrets", icon="☁️")
+        st.session_state['_cred_toast_shown'] = True
 except Exception as e:
     print(f"[DEBUG] Secrets failed, trying local: {e}")
     # Running locally or secrets not configured - use .env
@@ -48,7 +50,9 @@ except Exception as e:
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
         vision_client = vision.ImageAnnotatorClient()
         print("[DEBUG] Using local credentials file")
-        st.toast("📁 Using Local Credentials", icon="💻")
+        if not st.session_state.get('_cred_toast_shown'):
+            st.toast("📁 Using Local Credentials", icon="💻")
+            st.session_state['_cred_toast_shown'] = True
     else:
         st.error(f"❌ No credentials found! Please configure secrets in Streamlit Cloud.\n\nError: {str(e)}")
         st.stop()
